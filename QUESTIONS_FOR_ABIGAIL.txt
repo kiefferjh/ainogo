@@ -1,0 +1,51 @@
+Questions for Abigail
+
+1. Should the image remain visible while the participant is making each rating?
+
+2. If the image should disappear before rating:
+   - How long should the image be shown?
+   - Should the rating screen appear automatically after a fixed duration, or should the participant advance manually?
+
+3. Each image will receive both a valence rating and an arousal rating.
+   Should the order of those two ratings be:
+   - always valence first,
+   - always arousal first,
+   - randomized once per participant,
+   - or randomized separately for each image?
+
+4. Should image presentation order be randomized for each participant, or should the study use a fixed order?
+
+5. Is there a maximum allowed response time for either rating?
+   If so, what should the time limit be?
+
+6. If a participant reaches the time limit without responding, what should happen?
+   - continue to the next rating,
+   - mark the response as missing,
+   - show a message,
+   - or something else?
+
+7. What participant information should be collected before the task begins?
+   Possibilities include:
+   - participant/study ID,
+   - student ID,
+   - name,
+   - session number,
+   - group/condition.
+
+8. Are participant names or other directly identifying information actually needed, or should the task store only a study/participant ID?
+
+9. Should both keyboard (1–9) and mouse/click responses be allowed?
+
+10. Are there specific labels or anchors for the 1–9 valence scale?
+    For example: 1 = very unpleasant, 9 = very pleasant.
+
+11. Are there specific labels or anchors for the 1–9 arousal scale?
+    For example: 1 = very calm, 9 = very aroused.
+
+12. Should the participant be told to respond as quickly as possible, as accurately/intuitively as possible, or with some other wording?
+
+13. Does the study require Inquisit specifically, or is a browser-based implementation acceptable?
+
+14. Are there any requirements for how the final data should be stored or named beyond a local CSV file?
+
+15. Are there any practice trials, instructions, fixation screens, blank intervals, or other timing elements that should occur before/between the eight image trials?

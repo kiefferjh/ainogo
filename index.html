@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Rating Experiment</title>
+  </head>
+  <body>
+    <main>
+      <h1>Image Rating Experiment</h1>
+      <p id="screen-description">You will rate eight images for pleasantness and arousal.</p>
+      <button id="start-button" type="button">Start</button>
+      <section id="rating-panel" hidden aria-labelledby="rating-question">
+        <img id="study-image" alt="Official study image" />
+        <h2 id="rating-question">How pleasant is this image?</h2>
+        <p id="scale-labels">Development scale: 1 = very unpleasant, 9 = very pleasant. Final labels await confirmation.</p>
+        <div id="rating-buttons" role="group" aria-labelledby="rating-question"></div>
+      </section>
+      <p id="status" role="status"></p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
