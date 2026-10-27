@@ -52,6 +52,11 @@ Each question keeps responses disabled across two animation-frame callbacks,
 giving the updated image/question a rendering opportunity before accepting input
 or starting a reminder timer. This prevents queued inputs from answering a new
 question in the same browser task; it does not measure exact physical display time.
+Touch/pen activation uses the pointer type rather than assuming a zero click
+count means keyboard input. Repeated touch click counts do not trigger the mouse
+double-click filter; the rendering and prompt-version guards still apply.
+Buttons disable double-tap zoom with `touch-action: manipulation` while preserving
+normal scrolling and pinch zoom.
 Start is disabled in the static HTML until initialization succeeds; script
 download failures and JavaScript-disabled browsers cannot start a broken study.
 

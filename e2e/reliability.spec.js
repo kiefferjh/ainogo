@@ -329,6 +329,18 @@ test('rating reminders reset for new questions and cannot overwrite completion',
 test.describe('touch input', () => {
   test.use({ hasTouch: true });
   test('a full session works using touchscreen taps', async ({ page }) => {
+    await page.addInitScript(() => {
+      for (const type of ['pointerdown', 'pointerup', 'click']) {
+        document.addEventListener(type, event => {
+          const button = event.target.closest?.('#rating-buttons button');
+          if (button) console.debug('rating-touch-event', JSON.stringify({
+            type, detail: event.detail, pointerType: event.pointerType,
+            value: button.textContent, disabled: button.disabled,
+            prompt: document.querySelector('#screen-description')?.textContent,
+          }));
+        }, true);
+      }
+    });
     const session = await page.context().newCDPSession(page);
     await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
     await begin(page);
@@ -342,5 +354,21 @@ test.describe('touch input', () => {
     }
     await expect(page.locator('#screen-description')).toContainText('complete');
     expect((await page.locator('#status').textContent()).match(/valence 2, arousal 8/g)).toHaveLength(8);
+  });
+
+  test('touch click counts do not reject intentional new-prompt responses', async ({ page }) => {
+    await begin(page);
+    const activate = async (value, detail) => {
+      await expect(page.getByRole('button', { name: String(value), exact: true })).toBeEnabled();
+      await page.evaluate(({ value, detail }) => {
+        const button = document.querySelectorAll('#rating-buttons button')[value - 1];
+        button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+        button.dispatchEvent(new PointerEvent('click', { bubbles: true, pointerType: 'touch', detail }));
+      }, { value, detail });
+    };
+    await activate(2, 2);
+    await expect(page.locator('#screen-description')).toContainText('Image 1 of 8: select one arousal');
+    await activate(8, 3);
+    await expect(page.locator('#screen-description')).toContainText('Image 2 of 8');
   });
 });

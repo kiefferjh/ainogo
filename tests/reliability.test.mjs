@@ -142,6 +142,37 @@ test('second click of a double-click does not rate the next dimension', () => {
   assert.match(app.description(), /Image 1.*arousal/);
 });
 
+test('touch click counts do not suppress intentional responses on new questions', () => {
+  const app = setup({ enableKeyboard: false }); app.begin(); app.load();
+  for (let image = 0; image < 2; image++) {
+    if (image > 0) app.load();
+    for (const [value, detail] of [[2, 2], [8, 3]]) {
+      app.nodes['rating-buttons'].children[value - 1].emit('pointerdown');
+      app.click(value, { pointerType: 'touch', detail });
+    }
+  }
+  assert.match(app.description(), /complete/);
+  assert.match(app.status(), /plate: valence 2, arousal 8/);
+});
+
+test('touch activation with zero click detail still respects pointer controls', () => {
+  const app = setup({ enableKeyboard: false }); app.begin(); app.load();
+  app.nodes['rating-buttons'].children[1].emit('pointerdown');
+  app.click(2, { pointerType: 'touch', detail: 0 });
+  assert.match(app.description(), /arousal/);
+  const keyboardOnly = setup({ enableMouse: false }); keyboardOnly.begin(); keyboardOnly.load();
+  keyboardOnly.click(2, { pointerType: 'touch', detail: 0 });
+  assert.match(keyboardOnly.description(), /valence/);
+});
+
+test('touch gestures with zero click detail still cannot cross question boundaries', () => {
+  const app = setup(); app.begin(); app.load();
+  app.nodes['rating-buttons'].children[3].emit('pointerdown');
+  app.key('2');
+  app.click(4, { pointerType: 'touch', detail: 0 });
+  assert.match(app.description(), /Image 1.*arousal/);
+});
+
 test('loading and failed images block both input paths and retry preserves progress', () => {
   const app = setup(); app.begin();
   app.click(5); app.key('6');

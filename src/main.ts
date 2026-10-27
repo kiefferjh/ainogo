@@ -160,15 +160,18 @@ try {
       pointerPrompt = imageState === 'ready' && promptReady ? promptVersion : -1;
     });
     button.addEventListener('click', (event) => {
-      if (event.detail > 0) {
+      const directPointer = event.pointerType === 'touch' || event.pointerType === 'pen';
+      const pointerActivation = directPointer || event.detail > 0;
+      if (pointerActivation) {
         const beganOnPrompt = pointerPrompt;
         pointerPrompt = null;
         // A keyboard response may have advanced the prompt while the mouse was held.
         if (beganOnPrompt !== null && beganOnPrompt !== promptVersion) return;
       }
-      // Browsers report the second click of a double-click with detail = 2.
-      if (event.detail > 1) return;
-      if (event.detail === 0 ? !experimentConfig.enableKeyboard : !experimentConfig.enableMouse) return;
+      // Touch click counts may continue across intentional taps on new prompts.
+      // Only mouse multi-clicks use this additional accidental-input guard.
+      if (event.detail > 1 && !directPointer) return;
+      if (pointerActivation ? !experimentConfig.enableMouse : !experimentConfig.enableKeyboard) return;
       recordRating(value);
     });
     ratingButtons.append(button);
