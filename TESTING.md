@@ -24,6 +24,8 @@ integrity, focus changes, repeated input, image errors, and stalled-request
 recovery. Mobile emulation is not a substitute for testing physical phones.
 The suite also completes sessions with real browser touch events, delays image
 delivery, and checks reminder resets and completion after advancing the clock.
+Touch sessions use CPU throttling and wait for each confirmed prompt transition
+so synthesized clicks are processed before the test issues another response.
 Tests do not establish laboratory-grade visual presentation or reaction timing.
 
 To exercise the GitHub Pages `/ainogo/` base path locally, prefix the browser test
@@ -31,6 +33,8 @@ command with `GITHUB_ACTIONS=true`. Normal builds use `/`.
 
 Both suites run before the GitHub Pages artifact is uploaded. Failure traces are
 stored in `test-results/`; open one with `npx playwright show-trace <trace.zip>`.
+CI retains these files for seven days as the `browser-failure-traces` artifact
+when a check fails. A failed build cannot publish a Pages artifact.
 
 An image that has not loaded within 15 seconds offers a retry. This loading
 timeout is separate from the optional rating reminder; missing-response behavior

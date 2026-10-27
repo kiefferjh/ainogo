@@ -329,9 +329,15 @@ test('rating reminders reset for new questions and cannot overwrite completion',
 test.describe('touch input', () => {
   test.use({ hasTouch: true });
   test('a full session works using touchscreen taps', async ({ page }) => {
+    const session = await page.context().newCDPSession(page);
+    await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
     await begin(page);
     for (let index = 1; index <= 8; index++) {
+      // A touch action may return before its synthesized click is processed.
+      // Confirm each prompt transition rather than tapping against the old UI.
+      await expect(page.locator('#screen-description')).toContainText(`Image ${index} of 8: select one valence`);
       await page.getByRole('button', { name: '2', exact: true }).tap();
+      await expect(page.locator('#screen-description')).toContainText(`Image ${index} of 8: select one arousal`);
       await page.getByRole('button', { name: '8', exact: true }).tap();
     }
     await expect(page.locator('#screen-description')).toContainText('complete');
