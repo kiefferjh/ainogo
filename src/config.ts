@@ -1,8 +1,10 @@
 export const experimentConfig = {
   randomizeImageOrder: true,
   ratingOrder: ['valence', 'arousal'] as const,
+  // Keep enabled until a separate image presentation phase is specified.
   showImageDuringRating: true,
-  timeLimitMs: null,
+  // Reminder only; handling missing responses awaits the final study design.
+  timeLimitMs: null as number | null,
   enableKeyboard: true,
   enableMouse: true,
 };

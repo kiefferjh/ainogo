@@ -8,15 +8,16 @@
   <body>
     <main>
       <h1>Image Rating Experiment</h1>
-      <p id="screen-description">You will rate eight images for pleasantness and arousal.</p>
-      <button id="start-button" type="button">Start</button>
+      <p id="screen-description" tabindex="-1">Loading the study…</p>
+      <button id="start-button" type="button" disabled>Start</button>
       <section id="rating-panel" hidden aria-labelledby="rating-question">
         <img id="study-image" alt="Official study image" />
-        <h2 id="rating-question">How pleasant is this image?</h2>
+        <button id="retry-image" type="button" hidden>Retry image</button>
+        <h2 id="rating-question" tabindex="-1">How pleasant is this image?</h2>
         <p id="scale-labels">Development scale: 1 = very unpleasant, 9 = very pleasant. Final labels await confirmation.</p>
         <div id="rating-buttons" role="group" aria-labelledby="rating-question"></div>
       </section>
-      <p id="status" role="status"></p>
+      <p id="status" role="status">JavaScript must be enabled to take part in this study. If the study does not load, check your connection and refresh the page.</p>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
