@@ -72,6 +72,7 @@ try {
   let displayedImageIndex = -1;
   let imageRetryCount = 0;
   let focusedRating = '';
+  let promptVersion = 0;
 
   const startButton = document.querySelector<HTMLButtonElement>('#start-button');
   const screenDescription = document.querySelector<HTMLParagraphElement>('#screen-description');
@@ -107,6 +108,7 @@ try {
     if (currentScreen !== 'rating' || imageState !== 'ready' ||
         !Number.isInteger(value) || value < 1 || value > 9 || ratings[currentDimension] !== null) return;
 
+    promptVersion++;
     ratings[currentDimension] = value;
 
     const dimensionIndex = experimentConfig.ratingOrder.indexOf(currentDimension);
@@ -145,7 +147,17 @@ try {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = String(value);
+    let pointerPrompt: number | null = null;
+    button.addEventListener('pointerdown', () => {
+      pointerPrompt = imageState === 'ready' ? promptVersion : -1;
+    });
     button.addEventListener('click', (event) => {
+      if (event.detail > 0) {
+        const beganOnPrompt = pointerPrompt;
+        pointerPrompt = null;
+        // A keyboard response may have advanced the prompt while the mouse was held.
+        if (beganOnPrompt !== null && beganOnPrompt !== promptVersion) return;
+      }
       // Browsers report the second click of a double-click with detail = 2.
       if (event.detail > 1) return;
       if (event.detail === 0 ? !experimentConfig.enableKeyboard : !experimentConfig.enableMouse) return;
@@ -230,8 +242,13 @@ try {
         }, 15_000);
         studyImage.alt = image.alt;
         // A distinct retry URL avoids reusing an in-flight or cached failure.
-        studyImage.src = imageRetryCount === 0 ? image.src :
-          `${image.src}${image.src.includes('?') ? '&' : '?'}retry=${imageRetryCount}`;
+        if (imageRetryCount === 0) {
+          studyImage.src = image.src;
+        } else {
+          const retryUrl = new URL(image.src, document.baseURI);
+          retryUrl.searchParams.set('retry', String(imageRetryCount));
+          studyImage.src = retryUrl.href;
+        }
         // A cached image may already be available before its load event runs.
         if (studyImage.complete && studyImage.naturalWidth > 0) {
           imageState = 'ready';

@@ -39,6 +39,9 @@ activation of rating buttons. Mouse-only mode rejects both forms of keyboard
 submission. Configuration errors disable Start and show an unavailable message;
 the administrator can inspect the browser console for the underlying cause.
 Duplicate/blank image IDs are rejected to protect response identity.
+Mouse gestures begun on a previous question (or before an image loaded) cannot
+submit a later rating after a keyboard response. Image retries preserve existing
+URL query parameters and fragments while issuing a fresh network request.
 Start is disabled in the static HTML until initialization succeeds; script
 download failures and JavaScript-disabled browsers cannot start a broken study.
 

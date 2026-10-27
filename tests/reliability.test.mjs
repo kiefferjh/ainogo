@@ -48,6 +48,7 @@ function setup(overrides = {}, imageList = ['plate', 'chair'], environment = {})
     'study-image', 'rating-buttons', 'rating-question', 'scale-labels', 'retry-image',
   ].map(id => [id, new Element()]));
   const document = new Element();
+  document.baseURI = 'https://study.test/ainogo/';
   document.activeElement = null;
   document.querySelector = selector => nodes[selector.slice(1)];
   document.createElement = () => new Element();
@@ -57,10 +58,11 @@ function setup(overrides = {}, imageList = ['plate', 'chair'], environment = {})
   const errors = [];
   runInNewContext(source, {
     document,
+    URL,
     HTMLButtonElement: Element,
     console: { error: error => errors.push(error) },
     crypto: environment.crypto ?? { randomUUID: () => 'test-session', getRandomValues: array => array.fill(17) },
-    images: imageList.map(id => ({ id, src: `/${id}.png`, alt: id })),
+    images: imageList.map(id => ({ id, src: environment.imageSources?.[id] ?? `/${id}.png`, alt: id })),
     experimentConfig: {
       randomizeImageOrder: false, ratingOrder: ['valence', 'arousal'],
       showImageDuringRating: true, timeLimitMs: null,
@@ -279,6 +281,47 @@ test('unrelated repeated keys retain browser default behavior', () => {
   let prevented = false;
   app.key('ArrowDown', { repeat: true, preventDefault() { prevented = true; } });
   assert.equal(prevented, false);
+});
+
+test('a mouse gesture started on an earlier prompt cannot rate the next prompt', () => {
+  const app = setup(); app.begin(); app.load();
+  app.nodes['rating-buttons'].children[3].emit('pointerdown');
+  app.key('2');
+  app.click(4);
+  assert.match(app.description(), /Image 1.*arousal/);
+});
+
+test('native keyboard activation does not clear a held mouse gesture from the old prompt', () => {
+  const app = setup(); app.begin(); app.load();
+  app.nodes['rating-buttons'].children[3].emit('pointerdown');
+  app.click(4, { detail: 0 });
+  app.click(4);
+  assert.match(app.description(), /Image 1.*arousal/);
+});
+
+test('pressing a disabled rating while loading cannot record after the image arrives', () => {
+  const app = setup(); app.begin();
+  app.nodes['rating-buttons'].children[3].emit('pointerdown');
+  app.load(); app.click(4);
+  assert.match(app.description(), /Image 1.*valence/);
+});
+
+test('retry URLs retain query parameters and fragments while changing the network URL', () => {
+  const app = setup({}, ['plate'], {
+    imageSources: { plate: 'plate.png?size=large&retry=old#stimulus' },
+  });
+  app.begin();
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    app.nodes['study-image'].emit('error');
+    app.nodes['retry-image'].emit('click');
+    const url = new URL(app.nodes['study-image'].src);
+    assert.equal(url.pathname, '/ainogo/plate.png');
+    assert.equal(url.searchParams.get('size'), 'large');
+    assert.deepEqual(url.searchParams.getAll('retry'), [String(attempt)]);
+    assert.equal(url.hash, '#stimulus');
+  }
+  app.load(); app.click(2); app.key('8');
+  assert.match(app.description(), /complete/);
 });
 
 test('duplicate or empty image IDs cannot silently corrupt recorded image identity', () => {

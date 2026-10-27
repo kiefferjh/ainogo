@@ -66,6 +66,59 @@ test('holding a numeric key cannot fill the next rating', async ({ page }) => {
   await expect(page.locator('#screen-description')).toContainText('Image 1 of 8: select one arousal');
 });
 
+test('modified Enter does not submit a focused rating button', async ({ page }) => {
+  await begin(page);
+  const button = page.getByRole('button', { name: '4', exact: true });
+  await button.focus();
+  await page.keyboard.press('Control+Enter');
+  await expect(page.locator('#screen-description')).toContainText('Image 1 of 8: select one valence');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#screen-description')).toContainText('Image 1 of 8: select one arousal');
+});
+
+test('releasing a mouse press from the previous question cannot submit another rating', async ({ page }) => {
+  await begin(page);
+  const button = page.getByRole('button', { name: '4', exact: true });
+  await button.scrollIntoViewIfNeeded();
+  const box = await button.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.keyboard.press('2');
+  await page.mouse.up();
+  await expect(page.locator('#screen-description')).toContainText('Image 1 of 8: select one arousal');
+  await page.keyboard.press('8');
+  await expect(page.locator('#screen-description')).toContainText('Image 2 of 8');
+});
+
+test('retrying an image URL with a fragment starts a fresh network request', async ({ page }) => {
+  await page.clock.install();
+  await page.route('**/src/images.ts', async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response,
+      body: `${await response.text()}\nimages.forEach(image => { image.src += '#stimulus'; });`,
+    });
+  });
+  let stall = true;
+  const pending = [];
+  await page.route('**/*.png*', route => {
+    if (route.request().resourceType() !== 'image') return route.continue();
+    if (stall) pending.push(route);
+    else return route.continue();
+  });
+  await configuredPage(page, {});
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await page.getByRole('button', { name: 'Begin', exact: true }).click();
+  await expect(page.locator('#status')).toContainText('Loading image');
+  await page.clock.fastForward(15_000);
+  await expect(page.getByRole('button', { name: 'Retry image' })).toBeVisible();
+  stall = false;
+  await page.getByRole('button', { name: 'Retry image' }).click();
+  await expect(page.getByRole('button', { name: '4', exact: true })).toBeEnabled();
+  await page.keyboard.press('4');
+  await expect(page.locator('#screen-description')).toContainText('Image 1 of 8: select one arousal');
+  for (const route of pending) await route.abort();
+});
+
 test('keyboard focus moves to each new question after responding', async ({ page }) => {
   await begin(page);
   await expect(page.locator('#rating-question')).toBeFocused();
