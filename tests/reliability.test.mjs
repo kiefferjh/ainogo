@@ -4,7 +4,7 @@ import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// Run the actual app with controlled DOM events, image delivery, and timers.
+// Run the actual app with controlled DOM events, images, frames, and timers.
 // This tests behavior without adding a browser or DOM dependency.
 const source = stripTypeScriptTypes(
   readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8')
@@ -54,6 +54,16 @@ function setup(overrides = {}, imageList = ['plate', 'chair'], environment = {})
   document.createElement = () => new Element();
   const timers = new Map();
   const timerDelays = new Map();
+  const frames = new Map();
+  let frameId = 0;
+  const flushFrames = () => {
+    for (let turn = 0; turn < 2; turn++) {
+      const pending = [...frames.values()];
+      frames.clear();
+      for (const callback of pending) callback();
+    }
+  };
+  const settle = () => { if (!environment.manualFrames) flushFrames(); };
   let timerId = 0;
   const errors = [];
   runInNewContext(source, {
@@ -83,17 +93,20 @@ function setup(overrides = {}, imageList = ['plate', 'chair'], environment = {})
       return id;
     },
     clearTimeout: id => { timers.delete(id); timerDelays.delete(id); },
+    requestAnimationFrame: callback => { frames.set(++frameId, callback); return frameId; },
+    cancelAnimationFrame: id => frames.delete(id),
   });
   const app = {
-    nodes, timers, timerDelays, errors, document,
-    begin() { nodes['start-button'].emit('click'); nodes['start-button'].emit('click'); },
+    nodes, timers, timerDelays, errors, document, frames, flushFrames,
+    begin() { nodes['start-button'].emit('click'); nodes['start-button'].emit('click'); settle(); },
     load() {
       nodes['study-image'].complete = true;
       nodes['study-image'].naturalWidth = 100;
       nodes['study-image'].emit('load');
+      settle();
     },
-    click(value, details) { nodes['rating-buttons'].children[value - 1].emit('click', details); },
-    key(key, details) { document.emit('keydown', { key, ...details }); },
+    click(value, details) { nodes['rating-buttons'].children[value - 1].emit('click', details); settle(); },
+    key(key, details) { document.emit('keydown', { key, ...details }); settle(); },
     description: () => nodes['screen-description'].textContent,
     status: () => nodes.status.textContent,
   };
@@ -356,4 +369,43 @@ test('input and rating-order combinations preserve all recorded values', () => {
       }
     }
   }
+});
+
+test('responses are blocked until each new question has a rendering opportunity', () => {
+  const app = setup({}, ['plate'], { manualFrames: true });
+  app.begin(); app.load();
+  assert.equal(app.nodes['rating-buttons'].children[1].disabled, true);
+  app.key('2');
+  assert.match(app.description(), /valence/);
+  app.flushFrames();
+  app.key('2'); app.key('8');
+  assert.match(app.description(), /arousal/);
+  app.flushFrames(); app.key('8');
+  assert.match(app.description(), /complete/);
+});
+
+test('image errors cancel pending presentation callbacks without re-enabling input', () => {
+  const app = setup({}, ['plate'], { manualFrames: true });
+  app.begin(); app.load();
+  assert.equal(app.frames.size, 1);
+  app.nodes['study-image'].emit('error');
+  app.flushFrames();
+  assert.equal(app.frames.size, 0);
+  assert.equal(app.nodes['rating-buttons'].children[0].disabled, true);
+  assert.equal(app.nodes['retry-image'].hidden, false);
+});
+
+test('rating timers start after presentation and all callbacks clear on completion', () => {
+  const app = setup({ timeLimitMs: 100 }, ['plate'], { manualFrames: true });
+  app.begin(); app.load();
+  assert.equal(app.timers.size, 0);
+  app.flushFrames();
+  assert.equal(app.timers.size, 1);
+  app.key('2');
+  assert.equal(app.timers.size, 0);
+  app.flushFrames();
+  assert.equal(app.timers.size, 1);
+  app.key('8');
+  assert.equal(app.timers.size, 0);
+  assert.equal(app.frames.size, 0);
 });

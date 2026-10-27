@@ -22,6 +22,8 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/google/chrome/chrome npm run test:brows
 Browser tests cover desktop and mobile-sized Chrome layouts, full-session data
 integrity, focus changes, repeated input, image errors, and stalled-request
 recovery. Mobile emulation is not a substitute for testing physical phones.
+The suite also completes sessions with real browser touch events, delays image
+delivery, and checks reminder resets and completion after advancing the clock.
 Tests do not establish laboratory-grade visual presentation or reaction timing.
 
 To exercise the GitHub Pages `/ainogo/` base path locally, prefix the browser test
@@ -42,6 +44,10 @@ Duplicate/blank image IDs are rejected to protect response identity.
 Mouse gestures begun on a previous question (or before an image loaded) cannot
 submit a later rating after a keyboard response. Image retries preserve existing
 URL query parameters and fragments while issuing a fresh network request.
+Each question keeps responses disabled across two animation-frame callbacks,
+giving the updated image/question a rendering opportunity before accepting input
+or starting a reminder timer. This prevents queued inputs from answering a new
+question in the same browser task; it does not measure exact physical display time.
 Start is disabled in the static HTML until initialization succeeds; script
 download failures and JavaScript-disabled browsers cannot start a broken study.
 
@@ -50,3 +56,6 @@ presentation phase, so hiding the image would collect ratings without ever
 showing it. Implement that phase after its duration and advancement behavior are
 decided. Results are still held in memory, as the completion screen explains;
 CSV export and final study instructions remain unfinished study features.
+
+Deployment uses versioned GitHub Actions on Ubuntu 24.04 and limits each job to
+15 minutes to avoid unbounded waits or unexpected runner-image migrations.

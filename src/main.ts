@@ -73,6 +73,8 @@ try {
   let imageRetryCount = 0;
   let focusedRating = '';
   let promptVersion = 0;
+  let promptReady = false;
+  let promptFrame: number | null = null;
 
   const startButton = document.querySelector<HTMLButtonElement>('#start-button');
   const screenDescription = document.querySelector<HTMLParagraphElement>('#screen-description');
@@ -104,8 +106,14 @@ try {
     }
   };
 
+  const cancelPromptPresentation = () => {
+    if (promptFrame !== null) cancelAnimationFrame(promptFrame);
+    promptFrame = null;
+    promptReady = false;
+  };
+
   const recordRating = (value: number) => {
-    if (currentScreen !== 'rating' || imageState !== 'ready' ||
+    if (currentScreen !== 'rating' || imageState !== 'ready' || !promptReady ||
         !Number.isInteger(value) || value < 1 || value > 9 || ratings[currentDimension] !== null) return;
 
     promptVersion++;
@@ -149,7 +157,7 @@ try {
     button.textContent = String(value);
     let pointerPrompt: number | null = null;
     button.addEventListener('pointerdown', () => {
-      pointerPrompt = imageState === 'ready' ? promptVersion : -1;
+      pointerPrompt = imageState === 'ready' && promptReady ? promptVersion : -1;
     });
     button.addEventListener('click', (event) => {
       if (event.detail > 0) {
@@ -213,6 +221,7 @@ try {
     statusMessage.textContent = '';
     retryImage.hidden = true;
     clearRatingTimer();
+    cancelPromptPresentation();
 
     if (currentScreen === 'welcome') {
       screenDescription.textContent = `You will rate ${sessionImages.length} images for pleasantness and arousal.`;
@@ -279,19 +288,31 @@ try {
       }
 
       for (const button of ratingButtons.querySelectorAll('button')) {
-        button.disabled = imageState !== 'ready' || ratings[currentDimension] !== null;
+        button.disabled = true;
       }
 
-      const ratingKey = `${currentImageIndex}:${currentDimension}`;
-      if (imageState === 'ready' && focusedRating !== ratingKey) {
-        focusedRating = ratingKey;
-        ratingQuestion.focus();
-      }
-
-      if (imageState === 'ready' && experimentConfig.timeLimitMs !== null) {
-        ratingTimer = setTimeout(() => {
-          statusMessage.textContent = 'Time limit reached. Please select a rating to continue.';
-        }, experimentConfig.timeLimitMs);
+      if (imageState === 'ready') {
+        const version = promptVersion;
+        // Focus and scroll before a paint; enable responses in the next callback
+        // so the updated question/image has had a rendering opportunity.
+        promptFrame = requestAnimationFrame(() => {
+          const ratingKey = `${currentImageIndex}:${currentDimension}`;
+          if (focusedRating !== ratingKey) {
+            focusedRating = ratingKey;
+            ratingQuestion.focus();
+          }
+          promptFrame = requestAnimationFrame(() => {
+            promptFrame = null;
+            if (currentScreen !== 'rating' || imageState !== 'ready' || version !== promptVersion) return;
+            promptReady = true;
+            for (const button of ratingButtons.querySelectorAll('button')) button.disabled = false;
+            if (experimentConfig.timeLimitMs !== null) {
+              ratingTimer = setTimeout(() => {
+                statusMessage.textContent = 'Time limit reached. Please select a rating to continue.';
+              }, experimentConfig.timeLimitMs);
+            }
+          });
+        });
       }
     } else {
       clearImageLoadTimer();
