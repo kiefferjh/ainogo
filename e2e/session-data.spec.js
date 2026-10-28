@@ -105,7 +105,10 @@ test('new sessions retain earlier sessions for later CSV download', async ({ pag
   expect(await sessions(page)).toHaveLength(2);
   await page.getByRole('button', { name: 'New session', exact: true }).click();
   await expect(page.locator('#session-select option')).toHaveCount(2);
+  if (page.viewportSize().width < 600) await page.setViewportSize({ width: 320, height: 720 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.locator('#session-select').selectOption(first.sessionId);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByRole('button', { name: 'Resume session', exact: true })).toBeDisabled();
   const rows = await download(page, 'Download saved CSV');
   expect(rows).toHaveLength(16);
