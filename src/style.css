@@ -70,3 +70,21 @@ button:disabled {
   opacity: 0.5;
   cursor: default;
 }
+
+select {
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0.5rem;
+  margin-block: 0.5rem;
+  font: inherit;
+}
+
+#session-info, #storage-status {
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+#saved-sessions button, #download-session, #new-session {
+  margin-block: 0.25rem;
+}

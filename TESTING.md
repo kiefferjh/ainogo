@@ -63,8 +63,9 @@ download failures and JavaScript-disabled browsers cannot start a broken study.
 `showImageDuringRating: false` is currently rejected: the prototype has no separate
 presentation phase, so hiding the image would collect ratings without ever
 showing it. Implement that phase after its duration and advancement behavior are
-decided. Results are still held in memory, as the completion screen explains;
-CSV export and final study instructions remain unfinished study features.
+decided. Final study instructions still require confirmation. Reaction-time
+recording, local per-session saving, partial-session recovery, and CSV download
+are implemented; their definitions and limitations are documented in `DATA.md`.
 
 Deployment uses versioned GitHub Actions on Ubuntu 24.04 and limits each job to
 15 minutes to avoid unbounded waits or unexpected runner-image migrations.

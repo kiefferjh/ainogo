@@ -1,6 +1,7 @@
 import './style.css';
 import { images } from './images';
 import { experimentConfig, ratingPrompts } from './config';
+import { parseSession, readSessions, saveSession, sessionCsv, sessionStoragePrefix, SessionConflictError, type StudySession, type InputMethod } from './session';
 
 type Screen = 'welcome' | 'instructions' | 'rating' | 'complete';
 type RatingDimension = 'valence' | 'arousal';
@@ -56,7 +57,20 @@ try {
     return shuffled;
   };
 
-  const sessionImages = experimentConfig.randomizeImageOrder ? shuffle(images) : [...images];
+  let sessionImages = experimentConfig.randomizeImageOrder ? shuffle(images) : [...images];
+  const studySignature = JSON.stringify({ images, experimentConfig, ratingPrompts });
+  let session: StudySession = {
+    schemaVersion: 1, sessionId, startedAt: new Date().toISOString(), completedAt: null,
+    studySignature, imageIds: sessionImages.map(image => image.id),
+    settings: { ...experimentConfig, ratingOrder: [...experimentConfig.ratingOrder] },
+    responses: [], pendingInterrupted: false, revision: 0,
+  };
+  let sessionStarted = false;
+  let storage: Storage | null = null;
+  let savedSessions: StudySession[] = [];
+  let sessionConflict = false;
+  let paused = false;
+  let promptStartedAt: number | null = null;
 
   let currentScreen: Screen = 'welcome';
   let currentDimension: RatingDimension = experimentConfig.ratingOrder[0];
@@ -85,12 +99,83 @@ try {
   const ratingQuestion = document.querySelector<HTMLHeadingElement>('#rating-question');
   const scaleLabels = document.querySelector<HTMLParagraphElement>('#scale-labels');
   const retryImage = document.querySelector<HTMLButtonElement>('#retry-image');
+  const downloadSession = document.querySelector<HTMLButtonElement>('#download-session');
+  const newSession = document.querySelector<HTMLButtonElement>('#new-session');
+  const savedSection = document.querySelector<HTMLElement>('#saved-sessions');
+  const sessionSelect = document.querySelector<HTMLSelectElement>('#session-select');
+  const resumeSession = document.querySelector<HTMLButtonElement>('#resume-session');
+  const downloadSaved = document.querySelector<HTMLButtonElement>('#download-saved');
+  const storageStatus = document.querySelector<HTMLElement>('#storage-status');
+  const sessionInfo = document.querySelector<HTMLElement>('#session-info');
 
-  if (!startButton || !screenDescription || !statusMessage || !ratingPanel || !studyImage || !ratingButtons || !ratingQuestion || !scaleLabels || !retryImage) {
+  if (!startButton || !screenDescription || !statusMessage || !ratingPanel || !studyImage || !ratingButtons || !ratingQuestion || !scaleLabels || !retryImage || !downloadSession || !newSession || !savedSection || !sessionSelect || !resumeSession || !downloadSaved || !storageStatus || !sessionInfo) {
     throw new Error('The page is missing a required screen element.');
   }
 
   studyImage.hidden = !experimentConfig.showImageDuringRating;
+
+  const storageWarning = () => {
+    storageStatus.textContent = 'Browser saving is unavailable. Download your session CSV before closing or refreshing; recent responses may otherwise be lost.';
+  };
+  const canResume = (saved: StudySession) => saved.completedAt === null && saved.studySignature === studySignature &&
+    saved.imageIds.length === images.length && saved.imageIds.every(id => images.some(image => image.id === id));
+  const selectedSession = () => savedSessions.find(saved => saved.sessionId === sessionSelect.value);
+  const updateSavedButtons = () => {
+    const saved = selectedSession();
+    resumeSession.disabled = !saved || !canResume(saved);
+    downloadSaved.disabled = !saved || saved.responses.length === 0;
+  };
+  try {
+    storage = localStorage;
+    const result = readSessions(storage);
+    savedSessions = result.sessions;
+    storageStatus.textContent = result.damaged
+      ? 'Some damaged saved sessions could not be read. Valid sessions are listed below.'
+      : 'Responses are saved only on this browser/device. Download CSV files to keep a separate copy.';
+  } catch {
+    storage = null;
+    storageWarning();
+  }
+  for (const saved of savedSessions) {
+    const option = document.createElement('option');
+    option.value = saved.sessionId;
+    option.textContent = `${saved.startedAt} — ${saved.sessionId} — ${saved.completedAt ? 'complete' : `${saved.responses.length}/${saved.imageIds.length * 2} ratings`}`;
+    sessionSelect.append(option);
+  }
+  updateSavedButtons();
+  sessionSelect.addEventListener('change', updateSavedButtons);
+
+  const saveCurrentSession = () => {
+    if (!storage || sessionConflict) return;
+    try {
+      saveSession(storage, session);
+    } catch (error) {
+      if (error instanceof SessionConflictError) {
+        sessionConflict = true;
+        storageStatus.textContent = 'This session changed in another tab. Responses are paused to avoid overwriting it. Download your current CSV, then start a new session.';
+      } else {
+        storage = null;
+        storageWarning();
+      }
+    }
+  };
+
+  const downloadCsv = (saved: StudySession) => {
+    const url = URL.createObjectURL(new Blob([sessionCsv(saved)], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ainogo-${saved.sessionId}.csv`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  };
+  downloadSession.addEventListener('click', () => { if (session.responses.length) downloadCsv(session); });
+  downloadSaved.addEventListener('click', () => {
+    const saved = selectedSession();
+    if (saved?.responses.length) downloadCsv(saved);
+  });
+  newSession.addEventListener('click', () => window.location.reload());
 
   const clearRatingTimer = () => {
     if (ratingTimer !== null) {
@@ -110,12 +195,27 @@ try {
     if (promptFrame !== null) cancelAnimationFrame(promptFrame);
     promptFrame = null;
     promptReady = false;
+    promptStartedAt = null;
   };
 
-  const recordRating = (value: number) => {
+  const recordRating = (value: number, inputMethod: InputMethod) => {
+    const receivedAt = performance.now();
     if (currentScreen !== 'rating' || imageState !== 'ready' || !promptReady ||
+        paused || sessionConflict || promptStartedAt === null ||
         !Number.isInteger(value) || value < 1 || value > 9 || ratings[currentDimension] !== null) return;
 
+    const reactionTimeMs = Math.max(0, receivedAt - promptStartedAt);
+    const image = sessionImages[currentImageIndex];
+    session.responses.push({
+      imageId: image.id,
+      imageFilename: new URL(image.src, document.baseURI).pathname.split('/').pop() || image.id,
+      imageOrder: currentImageIndex + 1, dimension: currentDimension,
+      ratingPosition: experimentConfig.ratingOrder.indexOf(currentDimension) + 1,
+      value, reactionTimeMs, inputMethod, respondedAt: new Date().toISOString(),
+      exceededTimeLimit: experimentConfig.timeLimitMs !== null && reactionTimeMs >= experimentConfig.timeLimitMs,
+      interrupted: session.pendingInterrupted,
+    });
+    session.pendingInterrupted = false;
     promptVersion++;
     ratings[currentDimension] = value;
 
@@ -128,7 +228,7 @@ try {
       }
 
       responses.push({
-        sessionId,
+        sessionId: session.sessionId,
         imageId: sessionImages[currentImageIndex].id,
         imageOrder: currentImageIndex + 1,
         valence: ratings.valence,
@@ -143,10 +243,12 @@ try {
         ratings.arousal = null;
       } else {
         currentScreen = 'complete';
+        session.completedAt = new Date().toISOString();
         clearRatingTimer();
       }
     }
 
+    saveCurrentSession();
     render();
   };
 
@@ -172,7 +274,7 @@ try {
       // Only mouse multi-clicks use this additional accidental-input guard.
       if (event.detail > 1 && !directPointer) return;
       if (pointerActivation ? !experimentConfig.enableMouse : !experimentConfig.enableKeyboard) return;
-      recordRating(value);
+      recordRating(value, pointerActivation ? (event.pointerType === 'touch' ? 'touch' : event.pointerType === 'pen' ? 'pen' : 'mouse') : 'keyboard');
     });
     ratingButtons.append(button);
   }
@@ -189,12 +291,14 @@ try {
     const value = Number(event.key);
     if (Number.isInteger(value) && value >= 1 && value <= 9) {
       event.preventDefault();
-      if (!event.repeat) recordRating(value);
+      if (!event.repeat) recordRating(value, 'keyboard');
     }
   });
 
   studyImage.addEventListener('error', () => {
     if (currentScreen !== 'rating') return;
+    session.pendingInterrupted = true;
+    saveCurrentSession();
     clearImageLoadTimer();
     imageState = 'error';
     render();
@@ -225,6 +329,10 @@ try {
     retryImage.hidden = true;
     clearRatingTimer();
     cancelPromptPresentation();
+    downloadSession.hidden = session.responses.length === 0;
+    newSession.hidden = currentScreen !== 'complete' && !sessionConflict;
+    savedSection.hidden = currentScreen !== 'welcome' || savedSessions.length === 0;
+    sessionInfo.textContent = sessionStarted ? `Session: ${session.sessionId} — ${session.responses.length}/${sessionImages.length * 2} ratings recorded` : '';
 
     if (currentScreen === 'welcome') {
       screenDescription.textContent = `You will rate ${sessionImages.length} images for pleasantness and arousal.`;
@@ -238,6 +346,7 @@ try {
       screenDescription.textContent =
         'For each image, you will give two ratings on a scale from 1 to 9: ' +
         'one for valence (pleasantness) and one for arousal. ' + inputInstructions +
+        'Reaction time is recorded separately for each question. Download your session CSV when finished. ' +
         'The final study instructions will be added once the study design is confirmed.';
       startButton.textContent = 'Begin';
     } else if (currentScreen === 'rating') {
@@ -294,7 +403,11 @@ try {
         button.disabled = true;
       }
 
-      if (imageState === 'ready') {
+      if (sessionConflict) {
+        statusMessage.textContent = 'This session changed in another tab. Download your CSV and start a new session.';
+      } else if (paused) {
+        statusMessage.textContent = 'Study paused. Return to this tab/window to continue; the current rating will be marked interrupted.';
+      } else if (imageState === 'ready') {
         const version = promptVersion;
         // Focus and scroll before a paint; enable responses in the next callback
         // so the updated question/image has had a rendering opportunity.
@@ -306,7 +419,8 @@ try {
           }
           promptFrame = requestAnimationFrame(() => {
             promptFrame = null;
-            if (currentScreen !== 'rating' || imageState !== 'ready' || version !== promptVersion) return;
+            if (currentScreen !== 'rating' || imageState !== 'ready' || version !== promptVersion || paused || sessionConflict) return;
+            promptStartedAt = performance.now();
             promptReady = true;
             for (const button of ratingButtons.querySelectorAll('button')) button.disabled = false;
             if (experimentConfig.timeLimitMs !== null) {
@@ -325,7 +439,7 @@ try {
         responses.map((response) =>
           `${response.imageOrder}. ${response.imageId}: valence ${response.valence}, arousal ${response.arousal}.`
         ).join(' ') + ' ' +
-        'These responses are only in memory and are not saved to a file. Refresh to try again.';
+        ' Download your session CSV to keep the ratings and reaction times. Saved sessions remain on this browser unless its data is cleared.';
     }
   };
 
@@ -335,7 +449,76 @@ try {
       currentScreen = 'instructions';
       render();
     } else if (currentScreen === 'instructions') {
+      sessionStarted = true;
+      session.startedAt = new Date().toISOString();
+      saveCurrentSession();
       currentScreen = 'rating';
+      render();
+    }
+  });
+
+  resumeSession.addEventListener('click', () => {
+    if (currentScreen !== 'welcome' || !storage) return;
+    let saved: StudySession | null;
+    try {
+      saved = parseSession(storage.getItem(sessionStoragePrefix + sessionSelect.value) ?? '');
+    } catch {
+      storage = null;
+      storageWarning();
+      resumeSession.disabled = true;
+      return;
+    }
+    if (!saved || !canResume(saved)) {
+      storageStatus.textContent = 'This saved session cannot be resumed with the current study. You can still download valid saved responses.';
+      return;
+    }
+    session = saved;
+    sessionStarted = true;
+    session.pendingInterrupted = true;
+    sessionImages = session.imageIds.map(id => images.find(image => image.id === id)!);
+    currentImageIndex = Math.floor(session.responses.length / 2);
+    currentDimension = experimentConfig.ratingOrder[session.responses.length % 2];
+    ratings.valence = null;
+    ratings.arousal = null;
+    if (session.responses.length % 2) {
+      const previous = session.responses[session.responses.length - 1];
+      ratings[previous.dimension] = previous.value;
+    }
+    for (let index = 0; index + 1 < session.responses.length; index += 2) {
+      const pair = session.responses.slice(index, index + 2);
+      responses.push({ sessionId: session.sessionId, imageId: pair[0].imageId, imageOrder: pair[0].imageOrder,
+        valence: pair.find(row => row.dimension === 'valence')!.value,
+        arousal: pair.find(row => row.dimension === 'arousal')!.value });
+    }
+    saveCurrentSession();
+    currentScreen = 'rating';
+    render();
+  });
+
+  const pauseSession = () => {
+    if (currentScreen !== 'rating' || paused) return;
+    paused = true;
+    session.pendingInterrupted = true;
+    saveCurrentSession();
+    render();
+  };
+  const continueSession = () => {
+    if (currentScreen !== 'rating' || !paused || document.visibilityState === 'hidden') return;
+    paused = false;
+    render();
+  };
+  window.addEventListener('blur', pauseSession);
+  window.addEventListener('focus', continueSession);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') pauseSession();
+    else continueSession();
+  });
+  window.addEventListener('storage', event => {
+    if (!sessionStarted || (event.key !== null && event.key !== sessionStoragePrefix + session.sessionId)) return;
+    const other = event.newValue === null ? null : parseSession(event.newValue);
+    if (!other || JSON.stringify(other) !== JSON.stringify(session)) {
+      sessionConflict = true;
+      storageStatus.textContent = 'This session changed in another tab. Download your current CSV before starting a new session.';
       render();
     }
   });

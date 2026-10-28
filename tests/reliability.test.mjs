@@ -10,12 +10,25 @@ const source = stripTypeScriptTypes(
   readFileSync(new URL('../src/main.ts', import.meta.url), 'utf8')
     .replace(/^import .*;$/gm, ''),
 );
+const sessionModule = await import('data:text/javascript,' + encodeURIComponent(stripTypeScriptTypes(
+  readFileSync(new URL('../src/session.ts', import.meta.url), 'utf8'),
+)));
+
+class MemoryStorage {
+  data = new Map();
+  get length() { return this.data.size; }
+  key(index) { return [...this.data.keys()][index] ?? null; }
+  getItem(key) { return this.data.get(key) ?? null; }
+  setItem(key, value) { this.data.set(key, String(value)); }
+  removeItem(key) { this.data.delete(key); }
+}
 
 function setup(overrides = {}, imageList = ['plate', 'chair'], environment = {}) {
   class Element {
     hidden = false;
     disabled = false;
     textContent = '';
+    value = '';
     children = [];
     listeners = {};
     complete = false;
@@ -40,18 +53,24 @@ function setup(overrides = {}, imageList = ['plate', 'chair'], environment = {})
         callback({ detail: 1, preventDefault() {}, ...details });
       }
     }
-    append(child) { this.children.push(child); }
+    append(child) { this.children.push(child); if (!this.value && child.value) this.value = child.value; }
     querySelectorAll() { return this.children; }
   }
   const nodes = Object.fromEntries([
     'start-button', 'screen-description', 'status', 'rating-panel',
     'study-image', 'rating-buttons', 'rating-question', 'scale-labels', 'retry-image',
+    'session-info', 'session-select', 'saved-sessions', 'resume-session', 'download-saved',
+    'storage-status', 'download-session', 'new-session',
   ].map(id => [id, new Element()]));
   const document = new Element();
   document.baseURI = 'https://study.test/ainogo/';
   document.activeElement = null;
+  document.visibilityState = 'visible';
   document.querySelector = selector => nodes[selector.slice(1)];
   document.createElement = () => new Element();
+  const window = new Element();
+  const storage = environment.storage ?? new MemoryStorage();
+  let now = 0;
   const timers = new Map();
   const timerDelays = new Map();
   const frames = new Map();
@@ -67,7 +86,11 @@ function setup(overrides = {}, imageList = ['plate', 'chair'], environment = {})
   let timerId = 0;
   const errors = [];
   runInNewContext(source, {
+    ...sessionModule,
     document,
+    window,
+    localStorage: storage,
+    performance: { now: () => now },
     URL,
     HTMLButtonElement: Element,
     console: { error: error => errors.push(error) },
@@ -97,7 +120,8 @@ function setup(overrides = {}, imageList = ['plate', 'chair'], environment = {})
     cancelAnimationFrame: id => frames.delete(id),
   });
   const app = {
-    nodes, timers, timerDelays, errors, document, frames, flushFrames,
+    nodes, timers, timerDelays, errors, document, window, storage, frames, flushFrames,
+    advance(ms) { now += ms; },
     begin() { nodes['start-button'].emit('click'); nodes['start-button'].emit('click'); settle(); },
     load() {
       nodes['study-image'].complete = true;
@@ -439,4 +463,155 @@ test('rating timers start after presentation and all callbacks clear on completi
   app.key('8');
   assert.equal(app.timers.size, 0);
   assert.equal(app.frames.size, 0);
+});
+
+const savedData = app => sessionModule.readSessions(app.storage).sessions[0];
+
+test('per-rating reaction times exclude loading and presentation delays', () => {
+  const app = setup({}, ['plate'], { manualFrames: true });
+  app.begin(); app.advance(5000); app.load(); app.advance(2000); app.flushFrames();
+  app.advance(125.25); app.key('2');
+  app.advance(3000); app.flushFrames(); app.advance(76); app.click(8);
+  const saved = savedData(app);
+  assert.equal(saved.responses.length, 2);
+  assert.equal(saved.responses[0].reactionTimeMs, 125.25);
+  assert.equal(saved.responses[1].reactionTimeMs, 76);
+  assert.equal(saved.responses[0].inputMethod, 'keyboard');
+  assert.equal(saved.responses[1].inputMethod, 'mouse');
+  assert.equal(saved.responses[0].ratingPosition, 1);
+  assert.equal(saved.responses[1].ratingPosition, 2);
+  assert.ok(saved.completedAt);
+});
+
+test('limit flags use each response elapsed time rather than timer callback delivery', () => {
+  const app = setup({ timeLimitMs: 100 }, ['plate']); app.begin(); app.load();
+  app.advance(120); app.key('2'); app.advance(10); app.key('8');
+  const saved = savedData(app);
+  assert.equal(saved.responses[0].exceededTimeLimit, true);
+  assert.equal(saved.responses[1].exceededTimeLimit, false);
+});
+
+test('reload recovery preserves partial ratings and image order, and flags the restarted prompt', () => {
+  const first = setup({ randomizeImageOrder: true }); first.begin(); first.load();
+  first.advance(123); first.key('2');
+  const before = savedData(first);
+  const resumed = setup({ randomizeImageOrder: true }, ['plate', 'chair'], { storage: first.storage });
+  assert.equal(resumed.nodes['saved-sessions'].hidden, false);
+  resumed.nodes['resume-session'].emit('click'); resumed.load(); resumed.advance(77); resumed.key('8');
+  resumed.load(); resumed.key('3'); resumed.key('7');
+  const after = savedData(resumed);
+  assert.equal(after.sessionId, before.sessionId);
+  assert.deepEqual(after.imageIds, before.imageIds);
+  assert.deepEqual(after.responses[0], before.responses[0]);
+  assert.equal(after.responses[1].interrupted, true);
+  assert.equal(after.responses[1].reactionTimeMs, 77);
+  assert.equal(after.responses[2].interrupted, false);
+  assert.equal(after.responses.length, 4);
+  assert.match(resumed.description(), /complete/);
+});
+
+test('focus interruptions pause input and restart timing with an interruption flag', () => {
+  const app = setup({}, ['plate']); app.begin(); app.load(); app.advance(100); app.key('2');
+  app.window.emit('blur'); app.advance(9000); app.key('8');
+  assert.equal(savedData(app).responses.length, 1);
+  app.window.emit('focus'); app.flushFrames(); app.advance(42); app.key('8');
+  const saved = savedData(app);
+  assert.equal(saved.responses[0].interrupted, false);
+  assert.equal(saved.responses[1].interrupted, true);
+  assert.equal(saved.responses[1].reactionTimeMs, 42);
+});
+
+test('redundant focus events cannot reset an uninterrupted reaction time', () => {
+  const app = setup({}, ['plate']); app.begin(); app.load(); app.advance(80);
+  app.window.emit('focus'); app.advance(20); app.key('2');
+  assert.equal(savedData(app).responses[0].reactionTimeMs, 100);
+});
+
+test('completed sessions are retained separately from subsequent sessions', () => {
+  const first = setup({}, ['plate']); first.begin(); first.load(); first.key('2'); first.key('8');
+  const next = setup({}, ['plate'], { storage: first.storage, crypto: { randomUUID: () => 'session-two' } });
+  next.begin(); next.load(); next.key('3'); next.key('7');
+  const sessions = sessionModule.readSessions(first.storage).sessions;
+  assert.equal(sessions.length, 2);
+  assert.deepEqual(new Set(sessions.map(s => s.sessionId)), new Set(['test-session', 'session-two']));
+});
+
+test('incompatible studies allow download but not resume', () => {
+  const first = setup(); first.begin(); first.load(); first.key('2');
+  const changed = setup({ ratingOrder: ['arousal', 'valence'] }, ['plate', 'chair'], { storage: first.storage });
+  assert.equal(changed.nodes['resume-session'].disabled, true);
+  assert.equal(changed.nodes['download-saved'].disabled, false);
+});
+
+test('blocked storage and quota errors keep recording in memory and show a warning', () => {
+  for (const storage of [
+    { get length() { throw new Error('Blocked'); } },
+    Object.assign(new MemoryStorage(), { setItem() { throw new Error('Quota'); } }),
+  ]) {
+    const app = setup({}, ['plate'], { storage }); app.begin(); app.load(); app.key('2'); app.key('8');
+    assert.match(app.description(), /complete/);
+    assert.match(app.nodes['storage-status'].textContent, /saving is unavailable/);
+    assert.equal(app.nodes['download-session'].hidden, false);
+  }
+});
+
+test('conflicting revisions stop input without overwriting another tab', () => {
+  const app = setup(); app.begin(); app.load();
+  const original = savedData(app);
+  original.revision++;
+  const key = sessionModule.sessionStoragePrefix + original.sessionId;
+  app.storage.setItem(key, JSON.stringify(original));
+  app.key('2'); app.key('8');
+  assert.match(app.nodes['storage-status'].textContent, /another tab/);
+  assert.equal(savedData(app).responses.length, 0);
+  assert.equal(app.nodes['rating-buttons'].children[0].disabled, true);
+});
+
+test('storage events detect same-revision forks and cleared sessions', () => {
+  for (const cleared of [false, true]) {
+    const app = setup(); app.begin(); app.load(); app.key('2');
+    const other = savedData(app);
+    other.responses[0].value = 9;
+    app.window.emit('storage', { key: cleared ? null : sessionModule.sessionStoragePrefix + other.sessionId,
+      newValue: cleared ? null : JSON.stringify(other) });
+    assert.match(app.nodes['storage-status'].textContent, /another tab/);
+    app.key('8');
+    assert.equal(savedData(app).responses.length, 1);
+  }
+});
+
+test('damaged saved data is ignored without deleting valid or damaged sessions', () => {
+  const app = setup({}, ['plate']); app.begin(); app.load(); app.key('2'); app.key('8');
+  const valid = savedData(app);
+  for (const change of [
+    s => { s.responses[0].reactionTimeMs = -1; },
+    s => { s.responses[1].dimension = 'valence'; },
+    s => { s.responses[0].value = 10; },
+    s => { s.completedAt = null; },
+    s => { s.responses[0].exceededTimeLimit = true; },
+  ]) {
+    const bad = structuredClone(valid); change(bad);
+    assert.equal(sessionModule.parseSession(JSON.stringify(bad)), null);
+  }
+  const key = sessionModule.sessionStoragePrefix + 'broken';
+  app.storage.setItem(key, '{');
+  const result = sessionModule.readSessions(app.storage);
+  assert.equal(result.damaged, true);
+  assert.equal(result.sessions.length, 1);
+  assert.equal(app.storage.getItem(key), '{');
+});
+
+test('CSV includes one row per rating and safely escapes spreadsheet formulas and quotes', () => {
+  const app = setup({}, ['plate']); app.begin(); app.load(); app.key('2'); app.key('8');
+  const saved = savedData(app);
+  const csv = sessionModule.sessionCsv(saved);
+  assert.ok(csv.startsWith('\uFEFF"schema_version"'));
+  assert.equal(csv.split('\r\n').length, 4);
+  assert.match(csv, /"reaction_time_ms","input_method"/);
+  assert.match(csv, /"valence","1","2"/);
+  assert.match(csv, /"arousal","2","8"/);
+  saved.responses[0].imageFilename = '=HYPERLINK("bad")';
+  assert.ok(sessionModule.sessionCsv(saved).includes('"\'=HYPERLINK(""bad"")"'));
+  saved.responses[0].imageFilename = 'a,b"c\nd';
+  assert.ok(sessionModule.sessionCsv(saved).includes('"a,b""c\nd"'));
 });

@@ -10,6 +10,14 @@
       <h1>Image Rating Experiment</h1>
       <p id="screen-description" tabindex="-1">Loading the study…</p>
       <button id="start-button" type="button" disabled>Start</button>
+      <p id="session-info"></p>
+      <section id="saved-sessions" hidden aria-labelledby="saved-sessions-heading">
+        <h2 id="saved-sessions-heading">Sessions saved on this browser</h2>
+        <label for="session-select">Saved session</label>
+        <select id="session-select"></select>
+        <button id="resume-session" type="button">Resume session</button>
+        <button id="download-saved" type="button">Download saved CSV</button>
+      </section>
       <section id="rating-panel" hidden aria-labelledby="rating-question">
         <img id="study-image" alt="Official study image" />
         <button id="retry-image" type="button" hidden>Retry image</button>
@@ -18,6 +26,9 @@
         <div id="rating-buttons" role="group" aria-labelledby="rating-question"></div>
       </section>
       <p id="status" role="status">JavaScript must be enabled to take part in this study. If the study does not load, check your connection and refresh the page.</p>
+      <button id="download-session" type="button" hidden>Download session CSV</button>
+      <button id="new-session" type="button" hidden>New session</button>
+      <p id="storage-status" role="status"></p>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
