@@ -8,7 +8,18 @@
   <body>
     <main>
       <h1>Image Rating Experiment</h1>
-      <p id="desktop-download"><a href="https://github.com/kiefferjh/ainogo/releases" target="_blank" rel="noopener noreferrer">Download the offline desktop app</a></p>
+      <section id="desktop-download" aria-labelledby="desktop-download-heading">
+        <h2 id="desktop-download-heading">Download the desktop app</h2>
+        <p>Run offline, save sessions on your computer, and export CSV files.</p>
+        <div class="download-actions">
+          <a class="download-button" href="https://github.com/kiefferjh/ainogo/releases/download/desktop-v1.1.0/Ainogo-1.1.0-windows-x64-setup.exe">Download for Windows</a>
+          <a class="download-button" href="https://github.com/kiefferjh/ainogo/releases/download/desktop-v1.1.0/Ainogo-1.1.0-mac-universal.zip">Download for macOS</a>
+          <a class="download-button" href="https://github.com/kiefferjh/ainogo/releases/download/desktop-v1.1.0/Ainogo-1.1.0-linux-x86_64.AppImage">Download for Linux</a>
+        </div>
+        <p class="download-notes">Desktop preview v1.1.0 · Initial builds may require approval from your operating system.
+          <a href="https://github.com/kiefferjh/ainogo/releases/tag/desktop-v1.1.0" target="_blank" rel="noopener noreferrer">Other downloads and instructions</a>
+        </p>
+      </section>
       <p id="screen-description" tabindex="-1">Loading the study…</p>
       <button id="start-button" type="button" disabled>Start</button>
       <p id="session-info"></p>

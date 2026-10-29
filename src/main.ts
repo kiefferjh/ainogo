@@ -370,6 +370,8 @@ try {
 
   // Read the current state and update the visible page to match it.
   const render = () => {
+    const desktopDownload = document.querySelector<HTMLElement>('#desktop-download');
+    if (desktopDownload) desktopDownload.hidden = !!desktop || currentScreen === 'rating';
     ratingPanel.hidden = currentScreen !== 'rating';
     startButton.hidden = currentScreen === 'rating' || currentScreen === 'complete';
     statusMessage.textContent = '';
