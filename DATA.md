@@ -6,7 +6,13 @@ or participant IDs are collected yet; each session has a random session ID.
 
 ## Storage and recovery
 
-The app saves after Begin and after each rating to this site's `localStorage`,
+The downloadable desktop app saves JSON files in its local data folder, with
+atomic replacement and previous-copy recovery. See [DESKTOP.md](DESKTOP.md) for
+the Windows/macOS/Linux paths, backup instructions, and offline download details.
+The **Open data folder** button shows the actual folder. Desktop CSV export uses
+a native Save dialog. No session files are stored inside the installed program.
+
+The browser preview saves after Begin and after each rating to this site's `localStorage`,
 under `ainogo.session.v1.<session-id>`. Each session has its own key. Use browser
 developer tools → Application/Storage → Local Storage to inspect the JSON.
 The saved records contain the image order, configuration, individual responses,
@@ -22,7 +28,7 @@ Use one tab per session. Detected changes from another tab pause the old tab
 instead of overwriting the saved record. Its current in-memory responses can
 still be downloaded. Browser storage is not a transactional multi-user database.
 
-These records belong to the current browser profile and site origin, not to a
+Browser-preview records belong to the current browser profile and site origin, not to a
 server or GitHub. They do not automatically reach the researcher. Clearing site
 data, ending a private browsing session, or changing browser/device can remove
 access. Download CSV files for separate storage and transfer them using the lab's

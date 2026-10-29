@@ -36,6 +36,7 @@ export type StudySession = {
 
 export const sessionStoragePrefix = 'ainogo.session.v1.';
 export class SessionConflictError extends Error {}
+export type SessionStorage = Pick<Storage, 'length' | 'key' | 'getItem' | 'setItem'>;
 
 const isDate = (value: unknown): value is string =>
   typeof value === 'string' && Number.isFinite(Date.parse(value));
@@ -79,7 +80,7 @@ export function parseSession(raw: string): StudySession | null {
   }
 }
 
-export function readSessions(storage: Storage): { sessions: StudySession[]; damaged: boolean } {
+export function readSessions(storage: SessionStorage): { sessions: StudySession[]; damaged: boolean } {
   const sessions: StudySession[] = [];
   let damaged = false;
   for (let index = 0; index < storage.length; index++) {
@@ -93,7 +94,7 @@ export function readSessions(storage: Storage): { sessions: StudySession[]; dama
   return { sessions, damaged };
 }
 
-export function saveSession(storage: Storage, session: StudySession): void {
+export function saveSession(storage: SessionStorage, session: StudySession): void {
   const key = sessionStoragePrefix + session.sessionId;
   const existing = storage.getItem(key);
   if (existing !== null) {

@@ -1,5 +1,13 @@
 # Reliability testing
 
+Desktop file persistence is covered by `tests/desktop-store.test.mjs` and
+`npm run test:desktop`. The desktop release workflow also runs the restart and
+CSV export smoke test against the packaged executable on each operating system.
+It checks local-only loading, absence of Node access in the renderer, and invalid
+session-key rejection. Native smoke tests use temporary data/profile folders.
+On a Linux development machine without a usable Chromium OS sandbox, the test
+can explicitly use `AINOGO_TEST_NO_SANDBOX=1`; release launchers do not add it.
+
 Use Node.js 22.13 or newer (the deployment workflow uses the latest Node 22).
 
 Run the controlled event tests with `npm test`. These cover the full rating flow,

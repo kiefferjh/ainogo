@@ -1,7 +1,7 @@
 import './style.css';
 import { images } from './images';
 import { experimentConfig, ratingPrompts } from './config';
-import { parseSession, readSessions, saveSession, sessionCsv, sessionStoragePrefix, SessionConflictError, type StudySession, type InputMethod } from './session';
+import { parseSession, readSessions, saveSession, sessionCsv, sessionStoragePrefix, SessionConflictError, type StudySession, type InputMethod, type SessionStorage } from './session';
 
 type Screen = 'welcome' | 'instructions' | 'rating' | 'complete';
 type RatingDimension = 'valence' | 'arousal';
@@ -14,6 +14,14 @@ type ImageResponse = {
 };
 
 try {
+  const desktop = window.ainogoDesktop;
+  const desktopValue = <T>(result: DesktopResult<T>): T => {
+    if (!result.ok) {
+      if (result.code === 'SESSION_CONFLICT') throw new SessionConflictError(result.message);
+      throw new Error(result.message);
+    }
+    return result.value;
+  };
   // randomUUID requires a secure context; getRandomValues also works on HTTP.
   const sessionId = typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
@@ -58,7 +66,9 @@ try {
   };
 
   let sessionImages = experimentConfig.randomizeImageOrder ? shuffle(images) : [...images];
-  const studySignature = JSON.stringify({ images, experimentConfig, ratingPrompts });
+  const signatureImages = desktop ? images.map(image => ({ id: image.id, alt: image.alt,
+    filename: new URL(image.src, document.baseURI).pathname.split('/').pop() })) : images;
+  const studySignature = JSON.stringify({ images: signatureImages, experimentConfig, ratingPrompts });
   let session: StudySession = {
     schemaVersion: 1, sessionId, startedAt: new Date().toISOString(), completedAt: null,
     studySignature, imageIds: sessionImages.map(image => image.id),
@@ -66,7 +76,7 @@ try {
     responses: [], pendingInterrupted: false, revision: 0,
   };
   let sessionStarted = false;
-  let storage: Storage | null = null;
+  let storage: SessionStorage | null = null;
   let savedSessions: StudySession[] = [];
   let sessionConflict = false;
   let paused = false;
@@ -115,7 +125,9 @@ try {
   studyImage.hidden = !experimentConfig.showImageDuringRating;
 
   const storageWarning = () => {
-    storageStatus.textContent = 'Browser saving is unavailable. Download your session CSV before closing or refreshing; recent responses may otherwise be lost.';
+    storageStatus.textContent = desktop
+      ? 'File saving is unavailable. Export your session CSV before closing; recent responses may otherwise be lost.'
+      : 'Browser saving is unavailable. Download your session CSV before closing or refreshing; recent responses may otherwise be lost.';
   };
   const canResume = (saved: StudySession) => saved.completedAt === null && saved.studySignature === studySignature &&
     saved.imageIds.length === images.length && saved.imageIds.every(id => images.some(image => image.id === id));
@@ -126,12 +138,23 @@ try {
     downloadSaved.disabled = !saved || saved.responses.length === 0;
   };
   try {
-    storage = localStorage;
+    storage = desktop ? {
+      get length() { return desktopValue(desktop.listKeys()).length; },
+      key(index: number) { return desktopValue(desktop.listKeys())[index] ?? null; },
+      getItem(key: string) { return desktopValue(desktop.getItem(key)); },
+      setItem(key: string, value: string) { desktopValue(desktop.setItem(key, value)); },
+    } : localStorage;
     const result = readSessions(storage);
     savedSessions = result.sessions;
-    storageStatus.textContent = result.damaged
-      ? 'Some damaged saved sessions could not be read. Valid sessions are listed below.'
-      : 'Responses are saved only on this browser/device. Download CSV files to keep a separate copy.';
+    if (desktop) {
+      const info = desktopValue(desktop.info());
+      storageStatus.textContent = `Session files are saved at: ${info.directory}. Back up this folder or export CSVs. ${info.notices.join(' ')}`;
+      if (result.damaged) storageStatus.textContent += ' Some damaged records could not be read and were preserved.';
+    } else {
+      storageStatus.textContent = result.damaged
+        ? 'Some damaged saved sessions could not be read. Valid sessions are listed below.'
+        : 'Responses are saved only on this browser/device. Download CSV files to keep a separate copy.';
+    }
   } catch {
     storage = null;
     storageWarning();
@@ -160,7 +183,16 @@ try {
     }
   };
 
-  const downloadCsv = (saved: StudySession) => {
+  const downloadCsv = async (saved: StudySession) => {
+    if (desktop) {
+      try {
+        const result = desktopValue(await desktop.exportCsv(JSON.stringify(saved)));
+        if (!result.canceled) statusMessage.textContent = 'Session CSV exported.';
+      } catch (error) {
+        storageStatus.textContent = `CSV export failed: ${error instanceof Error ? error.message : 'Please try again.'}`;
+      }
+      return;
+    }
     const url = URL.createObjectURL(new Blob([sessionCsv(saved)], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
@@ -176,6 +208,21 @@ try {
     if (saved?.responses.length) downloadCsv(saved);
   });
   newSession.addEventListener('click', () => window.location.reload());
+  if (desktop) {
+    downloadSession.textContent = 'Export session CSV';
+    downloadSaved.textContent = 'Export saved CSV';
+    document.querySelector('#saved-sessions-heading')!.textContent = 'Sessions saved on this computer';
+    const folderButton = document.querySelector<HTMLButtonElement>('#open-data-folder');
+    if (folderButton) {
+      folderButton.hidden = false;
+      folderButton.addEventListener('click', async () => {
+        try { desktopValue(await desktop.openFolder()); }
+        catch { storageStatus.textContent = 'Could not open the data folder. Its location is shown above.'; }
+      });
+    }
+    const downloadLink = document.querySelector<HTMLElement>('#desktop-download');
+    if (downloadLink) downloadLink.hidden = true;
+  }
 
   const clearRatingTimer = () => {
     if (ratingTimer !== null) {
@@ -439,7 +486,8 @@ try {
         responses.map((response) =>
           `${response.imageOrder}. ${response.imageId}: valence ${response.valence}, arousal ${response.arousal}.`
         ).join(' ') + ' ' +
-        ' Download your session CSV to keep the ratings and reaction times. Saved sessions remain on this browser unless its data is cleared.';
+        (desktop ? ' Session files are saved on this computer. Export CSVs for analysis and keep a separate backup.'
+          : ' Download your session CSV to keep the ratings and reaction times. Saved sessions remain on this browser unless its data is cleared.');
     }
   };
 

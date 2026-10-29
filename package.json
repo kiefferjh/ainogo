@@ -1,18 +1,28 @@
 {
   "name": "ainogo",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.1.0",
+  "description": "Offline image-rating study with local session files, reaction times, and CSV export",
+  "main": "desktop/main.mjs",
+  "author": "Ainogo contributors",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/kiefferjh/ainogo",
   "scripts": {
     "test": "node --test",
     "test:browser": "npm run build && playwright test",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:desktop": "tsc --noEmit && node scripts/build-desktop.mjs",
+    "start:desktop": "npm run build:desktop && electron .",
+    "package:desktop": "npm run build:desktop && electron-builder --publish never",
+    "test:desktop": "npm run build:desktop && node scripts/desktop-smoke.mjs"
   },
   "keywords": [],
   "type": "module",
   "devDependencies": {
     "@playwright/test": "^1.64.1",
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
   }
