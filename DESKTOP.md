@@ -1,4 +1,4 @@
-# Ainogo 1.2.0 desktop preview
+# Ainogo 1.2.1 desktop preview
 
 Download the package for your operating system from this release. The study,
 all eight images, and its runtime are included. No Node installation, server,
@@ -28,6 +28,11 @@ remain available for recovery. Default locations:
 - macOS: `~/Library/Application Support/Ainogo/sessions`
 - Linux: `${XDG_CONFIG_HOME:-~/.config}/Ainogo/sessions`
 
+Completion and CSV export are not required to save results. Every accepted
+response is written immediately, including its reaction time. Closing a test
+partway through leaves the recorded responses in both its individual session
+file and the combined files. Later participants do not replace those results.
+
 The data folder is separate from the program. Replacing the downloaded app does
 not replace session files. Windows uninstall does not intentionally remove them.
 “Portable” describes the executable: data still goes to the user's data folder,
@@ -45,7 +50,8 @@ same rows, including session IDs, reaction times, settings and completion state.
 The JSON includes the column order and snapshot metadata; Excel uses typed cells
 and CSV uses text with spreadsheet formula protection. Sessions with no responses
 have a `record_type=session` row; recorded responses use `record_type=rating`.
-Filter to rating rows for analysis.
+Filter to rating rows for analysis. `session_status` is `partial` or `complete`;
+`ratings_recorded` and `ratings_expected` show progress on each session.
 
 All three files are written and flushed before `sessions/exports/CURRENT.json`
 is atomically updated to point at the new complete set. A failed write leaves the
@@ -71,7 +77,11 @@ in the desktop app; export their CSVs from the browser to retain those results.
 
 ## Export and timing
 
-Use **Export session CSV** on completion. It stays hidden during normal trials;
+Use **Export CSV — this session only** on completion. It contains only the current
+session, not the combined collection. **Export CSV — selected session only** on
+the welcome screen exports the selected saved session, including partial results.
+Use **Open data folder** for all experiments in JSON, CSV and Excel.
+The current-session export stays hidden during normal trials;
 if saving fails or a session conflicts, it appears early for emergency recovery. A native
 Save dialog lets you choose where the CSV goes. Saved sessions can also be
 exported from the welcome screen. Original JSON records remain in the data folder.

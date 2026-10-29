@@ -39,7 +39,7 @@ function csvRows(text) {
   return rows;
 }
 
-async function download(page, buttonName = 'Download session CSV') {
+async function download(page, buttonName = 'Download CSV — this session only') {
   const pending = page.waitForEvent('download');
   await page.getByRole('button', { name: buttonName, exact: true }).click();
   const file = await pending;
@@ -104,6 +104,7 @@ test('new sessions retain earlier sessions for later CSV download', async ({ pag
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await complete(page);
+  await expect(page.locator('#session-export-note')).toContainText('only this session');
   expect(await sessions(page)).toHaveLength(2);
   await page.getByRole('button', { name: 'Next participant', exact: true }).click();
   await expect(page.locator('#session-select option')).toHaveCount(2);
@@ -112,9 +113,29 @@ test('new sessions retain earlier sessions for later CSV download', async ({ pag
   await page.locator('#session-select').selectOption(first.sessionId);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByRole('button', { name: 'Resume session', exact: true })).toBeDisabled();
-  const rows = await download(page, 'Download saved CSV');
+  const rows = await download(page, 'Download CSV — selected session only');
   expect(rows).toHaveLength(16);
   expect(new Set(rows.map(row => row.session_id))).toEqual(new Set([first.sessionId]));
+});
+
+test('an unfinished participant remains saved after another test and exports only its recorded responses', async ({ page }) => {
+  await begin(page); await rate(page, 2);
+  const [partial] = await sessions(page);
+  await page.reload();
+  await begin(page); await complete(page);
+  const records = await sessions(page);
+  expect(records).toHaveLength(2);
+  const retained = records.find(session => session.sessionId === partial.sessionId);
+  expect(retained.completedAt).toBeNull();
+  expect(retained.responses).toEqual(partial.responses);
+  await page.reload();
+  await page.locator('#session-select').selectOption(partial.sessionId);
+  await expect(page.locator('#saved-export-note')).toContainText('only the selected session');
+  const rows = await download(page, 'Download CSV — selected session only');
+  expect(rows).toHaveLength(1);
+  expect(rows[0].session_id).toBe(partial.sessionId);
+  expect(rows[0].session_completed_at).toBe('');
+  expect(Number(rows[0].reaction_time_ms)).toBe(partial.responses[0].reactionTimeMs);
 });
 
 test('quota failures preserve downloadable in-memory data and show a persistent warning', async ({ page }) => {

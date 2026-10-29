@@ -38,7 +38,8 @@
         <label for="session-select">Saved session</label>
         <select id="session-select"></select>
         <button id="resume-session" type="button">Resume session</button>
-        <button id="download-saved" type="button">Download saved CSV</button>
+        <button id="download-saved" type="button" aria-describedby="saved-export-note">Download CSV — selected session only</button>
+        <p id="saved-export-note">Exports only the selected session, including any responses from a partially completed test.</p>
       </section>
       <section id="rating-panel" hidden aria-labelledby="rating-question">
         <img id="study-image" alt="Official study image" />
@@ -48,7 +49,8 @@
         <div id="rating-buttons" role="group" aria-labelledby="rating-question"></div>
       </section>
       <p id="status" role="status">JavaScript must be enabled to take part in this study. If the study does not load, check your connection and refresh the page.</p>
-      <button id="download-session" type="button" hidden>Download session CSV</button>
+      <button id="download-session" type="button" aria-describedby="session-export-note" hidden>Download CSV — this session only</button>
+      <p id="session-export-note" hidden>This CSV contains only this session’s ratings and reaction times.</p>
       <button id="new-session" type="button" hidden>New session</button>
       <p id="storage-status" role="status"></p>
       <button id="open-data-folder" type="button" hidden>Open data folder</button>

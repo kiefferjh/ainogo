@@ -54,7 +54,7 @@ else {
           const session = parseSession(raw);
           if (!session) throw new Error('Session validation failed.');
           const result = await dialog.showSaveDialog(window, {
-            title: 'Export session CSV', defaultPath: join(app.getPath('documents'), `ainogo-${session.sessionId}.csv`),
+            title: `Export CSV — session ${session.sessionId} only`, defaultPath: join(app.getPath('documents'), `ainogo-${session.sessionId}.csv`),
             filters: [{ name: 'CSV file', extensions: ['csv'] }],
           });
           if (result.canceled || !result.filePath) return { ok: true, value: { canceled: true } };

@@ -15,7 +15,11 @@ Each rating is automatically saved to a session JSON file on the computer.
 The app also updates matching **all-experiments.json**, **all-experiments.csv**,
 and **all-experiments.xlsx** files containing every saved experiment. Use
 **Open data folder** to open the latest complete set. Export for an individual
-session appears on completion (or earlier if saving fails).
+session appears on completion (or earlier if saving fails), explicitly labeled
+**this session only**. Selected saved sessions can also be exported individually.
+Partial tests are saved after every accepted response, even without completing
+the test or exporting CSV. They remain in all three combined formats, marked
+`partial` with recorded/expected rating counts.
 Choose **Next participant** after a test to start with a new random session ID;
 resuming an interrupted test keeps its existing ID and responses.
 Keep a separate backup of the data folder: local storage cannot protect against a

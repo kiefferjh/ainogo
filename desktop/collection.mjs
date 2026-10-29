@@ -9,7 +9,8 @@ const filenames = ['all-experiments.json', 'all-experiments.csv', 'all-experimen
 export function collectionTable(sessions, { sessionColumns, sessionRecords }) {
   const columns = ['snapshot_id', 'snapshot_updated_at', 'record_type', ...sessionColumns,
     'session_revision', 'pending_interrupted', 'study_signature', 'image_ids',
-    'enable_keyboard', 'enable_mouse', 'randomize_image_order', 'show_image_during_rating'];
+    'enable_keyboard', 'enable_mouse', 'randomize_image_order', 'show_image_during_rating',
+    'session_status', 'ratings_recorded', 'ratings_expected'];
   const snapshotId = randomUUID();
   const updatedAt = new Date().toISOString();
   const records = sessions.flatMap(session => {
@@ -26,6 +27,8 @@ export function collectionTable(sessions, { sessionColumns, sessionRecords }) {
       enable_keyboard: session.settings.enableKeyboard, enable_mouse: session.settings.enableMouse,
       randomize_image_order: session.settings.randomizeImageOrder,
       show_image_during_rating: session.settings.showImageDuringRating,
+      session_status: session.completedAt === null ? 'partial' : 'complete',
+      ratings_recorded: session.responses.length, ratings_expected: session.imageIds.length * 2,
     }));
   });
   return { schemaVersion: 1, snapshotId, updatedAt, columns, records };

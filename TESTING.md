@@ -9,6 +9,11 @@ checks the CSV row count. Store tests compare every field across JSON, CSV and
 Excel for 25 participants, exercise incomplete sessions, and inject workbook and
 manifest write failures to verify that the last complete set remains current.
 Deleted collections rebuild on restart from individual session files.
+Partial-session tests also start and complete a later participant, reopen the
+store, compare all three formats, and finish the original partial session without
+changing its ID or prior responses. The native smoke test checks the combined
+files after closing an unfinished test without export. With two participants
+saved, individual CSV export must contain only the current participant's 16 rows.
 It checks local-only loading, absence of Node access in the renderer, and invalid
 session-key rejection. Native smoke tests use temporary data/profile folders.
 On a Linux development machine without a usable Chromium OS sandbox, the test

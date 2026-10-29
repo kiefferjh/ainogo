@@ -113,6 +113,7 @@ try {
   const scaleLabels = document.querySelector<HTMLParagraphElement>('#scale-labels');
   const retryImage = document.querySelector<HTMLButtonElement>('#retry-image');
   const downloadSession = document.querySelector<HTMLButtonElement>('#download-session');
+  const sessionExportNote = document.querySelector<HTMLElement>('#session-export-note');
   const newSession = document.querySelector<HTMLButtonElement>('#new-session');
   const savedSection = document.querySelector<HTMLElement>('#saved-sessions');
   const sessionSelect = document.querySelector<HTMLSelectElement>('#session-select');
@@ -145,7 +146,7 @@ try {
     const info = desktopValue(desktop.info());
     collectionUnavailable = !!info.collectionError;
     storageStatus.textContent = info.collectionError ||
-      `All experiments are saved together as JSON, CSV and Excel (${info.collection?.sessionCount ?? 0} sessions). Select Open data folder to find the latest matching files. Individual session files: ${info.directory}. ${info.notices.join(' ')}`;
+      `All experiments, including partially completed tests, are saved after each response as JSON, CSV and Excel (${info.collection?.sessionCount ?? 0} sessions). Select Open data folder for all sessions. CSV export buttons export only one session. Individual session files: ${info.directory}. ${info.notices.join(' ')}`;
   };
   try {
     storage = desktop ? {
@@ -162,7 +163,7 @@ try {
     } else {
       storageStatus.textContent = result.damaged
         ? 'Some damaged saved sessions could not be read. Valid sessions are listed below.'
-        : 'Only the optional browser-saving mode stores responses here. Download CSV files to keep a separate copy.';
+        : 'Browser-saving mode saves each response here, including partial tests. CSV downloads contain only the selected session. The online preview is not saved.';
     }
   } catch {
     storage = null;
@@ -197,7 +198,7 @@ try {
     if (desktop) {
       try {
         const result = desktopValue(await desktop.exportCsv(JSON.stringify(saved)));
-        if (!result.canceled) statusMessage.textContent = 'Session CSV exported.';
+        if (!result.canceled) statusMessage.textContent = `CSV exported for session ${saved.sessionId} only.`;
       } catch (error) {
         storageStatus.textContent = `CSV export failed: ${error instanceof Error ? error.message : 'Please try again.'}`;
       }
@@ -221,8 +222,8 @@ try {
   });
   newSession.addEventListener('click', () => window.location.reload());
   if (desktop) {
-    downloadSession.textContent = 'Export session CSV';
-    downloadSaved.textContent = 'Export saved CSV';
+    downloadSession.textContent = 'Export CSV — this session only';
+    downloadSaved.textContent = 'Export CSV — selected session only';
     document.querySelector('#saved-sessions-heading')!.textContent = 'Sessions saved on this computer';
     const folderButton = document.querySelector<HTMLButtonElement>('#open-data-folder');
     if (folderButton) {
@@ -403,6 +404,11 @@ try {
     cancelPromptPresentation();
     downloadSession.hidden = unsavedPreview || session.responses.length === 0 ||
       (currentScreen !== 'complete' && storage !== null && !sessionConflict);
+    if (sessionExportNote) {
+      sessionExportNote.hidden = downloadSession.hidden;
+      sessionExportNote.textContent = 'This CSV contains only this session’s ratings and reaction times.' +
+        (desktop ? ' For all saved experiments, including partial tests, select Open data folder.' : ' Other sessions are saved and exported separately.');
+    }
     newSession.hidden = currentScreen !== 'complete' && !sessionConflict;
     newSession.textContent = unsavedPreview ? 'New session' : 'Next participant';
     savedSection.hidden = currentScreen !== 'welcome' || savedSessions.length === 0;
@@ -424,7 +430,7 @@ try {
         'one for valence (pleasantness) and one for arousal. ' + inputInstructions +
         (unsavedPreview
           ? 'This is an unsaved online test. Ratings and reaction times are held in memory only; closing or refreshing discards them. '
-          : 'Reaction time is recorded separately for each question. Download your session CSV when finished. ') +
+          : `Each accepted response and its reaction time are saved ${desktop ? 'to this computer' : 'in this browser'}, even if you stop before finishing. CSV export contains only this session. `) +
         'The final study instructions will be added once the study design is confirmed.';
       startButton.textContent = 'Begin';
     } else if (currentScreen === 'rating') {

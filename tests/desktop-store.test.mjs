@@ -141,6 +141,41 @@ test('failed collection write leaves the previous matching trio current and reta
   assert.equal(reopened.info().collectionError, '');
 });
 
+test('a partial test remains in every format after later participants and restart without CSV export', () => {
+  const f = fixture();
+  const next = { ...structuredClone(f.session), sessionId: 'session-two' };
+  f.store.setItem(key, JSON.stringify(f.session)); f.append();
+  f.store.setItem(key, JSON.stringify(f.session));
+  const originalResponse = structuredClone(f.session.responses[0]);
+  const nextKey = sessionStoragePrefix + next.sessionId;
+  f.store.setItem(nextKey, JSON.stringify(next));
+  next.responses.push({ ...originalResponse, value: 3 }); next.revision++;
+  f.store.setItem(nextKey, JSON.stringify(next));
+  next.responses.push({ ...originalResponse, dimension: 'arousal', ratingPosition: 2, value: 7 });
+  next.revision++; next.completedAt = next.startedAt;
+  f.store.setItem(nextKey, JSON.stringify(next));
+  const reopened = new FileSessionStore(f.directory, parseSession, serializers);
+  const { data, manifest } = collection(reopened); // Compares JSON, CSV and Excel field by field.
+  assert.equal(manifest.sessionCount, 2);
+  assert.equal(manifest.ratingCount, 3);
+  const [partial] = data.records.filter(row => row.session_id === f.session.sessionId);
+  assert.equal(partial.session_status, 'partial');
+  assert.equal(partial.ratings_recorded, 1);
+  assert.equal(partial.ratings_expected, 2);
+  assert.equal(partial.session_completed_at, null);
+  assert.equal(partial.reaction_time_ms, originalResponse.reactionTimeMs);
+  assert.equal(data.records.filter(row => row.session_status === 'complete').length, 2);
+  const recovered = JSON.parse(reopened.getItem(key));
+  assert.deepEqual(recovered.responses, [originalResponse]);
+  recovered.responses.push({ ...originalResponse, dimension: 'arousal', ratingPosition: 2, value: 8 });
+  recovered.revision++; recovered.completedAt = recovered.startedAt;
+  reopened.setItem(key, JSON.stringify(recovered));
+  const finished = collection(reopened);
+  assert.equal(finished.manifest.sessionCount, 2);
+  assert.equal(finished.manifest.ratingCount, 4);
+  assert.ok(finished.data.records.every(row => row.session_status === 'complete'));
+});
+
 test('interrupted publication and deleted combined files rebuild from individual session records', () => {
   const f = fixture(); f.store.setItem(key, JSON.stringify(f.session));
   const previous = collection(f.store);

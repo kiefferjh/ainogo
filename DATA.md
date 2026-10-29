@@ -23,6 +23,11 @@ signature, original image IDs (JSON text), and all configured input/presentation
 flags. A session without responses has one `record_type=session` row with empty
 rating fields; otherwise it has one `record_type=rating` row per response.
 Excel collections exceeding one sheet's row limit continue on additional sheets.
+`session_status` explicitly identifies `partial` and `complete` tests, while
+`ratings_recorded` and `ratings_expected` show progress. Partial tests are
+included immediately after each accepted response; completion or manual CSV
+export is not required. Their responses survive app restarts and later
+participants. The deliberately unsaved online preview remains memory-only.
 
 Each trio is staged and flushed before an atomic `exports/CURRENT.json` pointer
 switch makes it current. Individual session JSON files are authoritative and
@@ -113,7 +118,13 @@ does not fabricate a missing rating or auto-advance after a reminder.
 | `interrupted` | Whether this question was interrupted/restarted. |
 | `rating_order` | Configured order, such as `valence then arousal`. |
 
-In browser-saving mode, **Download session CSV** appears on completion. If
+**Export CSV — this session only** (desktop) and **Download CSV — this session only**
+(browser-saving mode) export one session, not the combined collection. The
+**selected session only** button exports just the saved session selected on the
+welcome screen, including any partial results. Use **Open data folder** in the
+desktop app for the combined files across all experiments.
+
+The current-session CSV button appears on completion. If
 saving fails or a session conflicts, it appears earlier for recovery. Previously
 saved sessions can also be exported from the welcome screen. Files use
 `ainogo-<session-id>.csv`, UTF-8 with a BOM, CRLF

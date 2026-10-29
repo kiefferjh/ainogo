@@ -60,7 +60,7 @@ function setup(overrides = {}, imageList = ['plate', 'chair'], environment = {})
     'start-button', 'screen-description', 'status', 'rating-panel',
     'study-image', 'rating-buttons', 'rating-question', 'scale-labels', 'retry-image',
     'session-info', 'session-select', 'saved-sessions', 'resume-session', 'download-saved',
-    'storage-status', 'download-session', 'new-session', 'preview-button',
+    'storage-status', 'download-session', 'new-session', 'preview-button', 'session-export-note',
   ].map(id => [id, new Element()]));
   const document = new Element();
   document.baseURI = 'https://study.test/ainogo/';

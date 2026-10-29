@@ -30,6 +30,16 @@ try {
   const first = JSON.parse(readFileSync(join(directory, 'sessions', filename), 'utf8'));
   assert.equal(first.responses.length, 1);
   await application.close();
+  const partialManifest = JSON.parse(readFileSync(join(directory, 'sessions', 'exports', 'CURRENT.json'), 'utf8'));
+  const partial = JSON.parse(readFileSync(join(partialManifest.directory, 'all-experiments.json'), 'utf8'));
+  assert.equal(partial.records.length, 1);
+  assert.equal(partial.records[0].session_id, first.sessionId);
+  assert.equal(partial.records[0].session_status, 'partial');
+  assert.equal(partial.records[0].ratings_recorded, 1);
+  assert.equal(partial.records[0].ratings_expected, 16);
+  const partialBook = XLSX.read(readFileSync(join(partialManifest.directory, 'all-experiments.xlsx')), { type: 'buffer' });
+  assert.deepEqual(XLSX.utils.sheet_to_json(partialBook.Sheets[partialBook.SheetNames[0]], { defval: null }), partial.records);
+  assert.equal(readFileSync(join(partialManifest.directory, 'all-experiments.csv'), 'utf8').trimEnd().split('\r\n').length, 2);
   application = await launch(); page = await application.firstWindow();
   page.on('pageerror', error => errors.push(error.message));
   await page.getByRole('button', { name: 'Resume session', exact: true }).click();
@@ -41,11 +51,12 @@ try {
   assert.equal(saved.responses[1].interrupted, true);
   assert.ok(saved.completedAt);
   assert.equal(await page.locator('#download-session').isVisible(), true);
+  assert.match(await page.locator('#session-export-note').textContent(), /only this session/);
   const output = join(directory, 'export.csv');
   await application.evaluate(({ dialog }, output) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: output });
   }, output);
-  await page.getByRole('button', { name: 'Export session CSV', exact: true }).click();
+  await page.getByRole('button', { name: 'Export CSV — this session only', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('#status').textContent.includes('CSV exported'));
   const csv = readFileSync(output, 'utf8');
   assert.equal(csv.trimEnd().split('\r\n').length, 17);
@@ -62,6 +73,13 @@ try {
   assert.equal(manifest.ratingCount, 32);
   assert.equal(new Set(combined.records.map(row => row.session_id)).size, 2);
   assert.equal(readFileSync(join(manifest.directory, 'all-experiments.csv'), 'utf8').trimEnd().split('\r\n').length, 33);
+  await page.getByRole('button', { name: 'Export CSV — this session only', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('CSV exported'));
+  const sessionOnlyCsv = readFileSync(output, 'utf8');
+  assert.equal(sessionOnlyCsv.trimEnd().split('\r\n').length, 17);
+  assert.equal(sessionOnlyCsv.includes(first.sessionId), false);
+  const secondId = combined.records.find(row => row.session_id !== first.sessionId).session_id;
+  assert.ok(sessionOnlyCsv.includes(secondId));
   assert.deepEqual(errors, []);
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined');
   assert.ok(page.url().startsWith('file:'));
@@ -72,7 +90,8 @@ try {
   const illegal = await page.evaluate(() => window.ainogoDesktop.getItem('ainogo.session.v1.../escape'));
   assert.equal(illegal.ok, false);
   console.log(JSON.stringify({ desktop: true, offline: true, recoveredAfterRestart: true,
-    savedRatings: 32, csvRows: 32, uniqueSessions: 2, synchronizedFormats: ['json', 'csv', 'xlsx'], dataDirectory: directory, pageErrors: errors }));
+    savedRatings: 32, csvRows: 32, uniqueSessions: 2, partialSavedWithoutExport: true,
+    sessionOnlyCsvRows: 16, synchronizedFormats: ['json', 'csv', 'xlsx'], dataDirectory: directory, pageErrors: errors }));
 } finally {
   if (application) await application.close();
 }
