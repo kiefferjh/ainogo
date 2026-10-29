@@ -1,6 +1,6 @@
 {
   "name": "ainogo",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Offline image-rating study with local session files, reaction times, and CSV export",
   "main": "desktop/main.mjs",
   "author": "Ainogo contributors",
@@ -25,5 +25,8 @@
     "electron-builder": "^26.18.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
+  },
+  "dependencies": {
+    "xlsx": "file:vendor/xlsx-0.20.3.tgz"
   }
 }

@@ -1,4 +1,4 @@
-# Ainogo desktop preview
+# Ainogo 1.2.0 desktop preview
 
 Download the package for your operating system from this release. The study,
 all eight images, and its runtime are included. No Node installation, server,
@@ -19,7 +19,10 @@ FUSE. The archive is an alternative when FUSE is unavailable.
 ## Local data
 
 The app automatically saves each session as a JSON file after every accepted
-rating. Use **Open data folder** to find them. Default locations:
+rating. It also saves a matching collection of **all-experiments.json**,
+**all-experiments.csv**, and **all-experiments.xlsx** after each response.
+Use **Open data folder** to open the latest collection. Individual session files
+remain available for recovery. Default locations:
 
 - Windows: `%APPDATA%\Ainogo\sessions`
 - macOS: `~/Library/Application Support/Ainogo/sessions`
@@ -37,6 +40,28 @@ originals are preserved when writing a recovered session. These copies protect
 against interrupted saves, not disk failure. Back up the whole `sessions` folder
 to a separate device or location as well as exporting CSVs.
 
+The combined files live in `sessions/exports/<snapshot-id>/`. They contain the
+same rows, including session IDs, reaction times, settings and completion state.
+The JSON includes the column order and snapshot metadata; Excel uses typed cells
+and CSV uses text with spreadsheet formula protection. Sessions with no responses
+have a `record_type=session` row; recorded responses use `record_type=rating`.
+Filter to rating rows for analysis.
+
+All three files are written and flushed before `sessions/exports/CURRENT.json`
+is atomically updated to point at the new complete set. A failed write leaves the
+last complete set available, shows a warning, and retains the individual session
+records. The next successful save or app restart rebuilds the collection.
+The current and previous complete sets are retained; older generated snapshots
+are cleaned up. Use **Open data folder** again to see the newest files, and copy
+a set elsewhere before analysis. An already-open Excel workbook does not refresh
+automatically. Do not edit generated files to correct study data.
+
+Each new participant receives a random session ID. Use **Next participant** after
+completion; all earlier sessions remain in the collection. **Resume session**
+continues the same participant's interrupted test and keeps its ID. Collection
+is shared by runs using the same data folder/OS account. Separate OS accounts need
+the same accessible `AINOGO_DATA_DIR` if they are to share a collection.
+
 Use one running instance per data folder. Launching the app again brings the
 existing instance forward. Do not manually edit files while the app is running.
 Advanced users can set `AINOGO_DATA_DIR` to an absolute directory before launch;
@@ -46,7 +71,8 @@ in the desktop app; export their CSVs from the browser to retain those results.
 
 ## Export and timing
 
-Use **Export session CSV** after the first response or on completion. A native
+Use **Export session CSV** on completion. It stays hidden during normal trials;
+if saving fails or a session conflicts, it appears early for emergency recovery. A native
 Save dialog lets you choose where the CSV goes. Saved sessions can also be
 exported from the welcome screen. Original JSON records remain in the data folder.
 
@@ -55,7 +81,8 @@ image/rating order, timestamps, and interruption flags. Timing and CSV definitio
 remain documented in DATA.md in the source repository. Interrupted or resumed
 ratings restart timing and are marked; browser rendering is not laboratory-grade
 physical stimulus timing. Final study instructions and participant-ID collection
-still need the study-design decisions described in the project notes.
+still need the study-design decisions described in the project notes. Random
+session IDs identify test runs, not a person's identity across separate visits.
 
 ## Build from source
 

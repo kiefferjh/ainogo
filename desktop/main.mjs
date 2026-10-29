@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { FileSessionStore, atomicWrite } from './store.mjs';
-import { parseSession, sessionCsv } from '../dist-desktop/session.js';
+import { parseSession, sessionCsv, sessionColumns, sessionRecords, csvTable } from '../dist-desktop/session.js';
 
 app.setName('Ainogo');
 const dataRoot = process.env.AINOGO_DATA_DIR
@@ -14,7 +14,7 @@ else {
   app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); } });
   app.whenReady().then(async () => {
     let store;
-    try { store = new FileSessionStore(join(dataRoot, 'sessions'), parseSession); }
+    try { store = new FileSessionStore(join(dataRoot, 'sessions'), parseSession, { sessionColumns, sessionRecords, csvTable }); }
     catch (error) { dialog.showErrorBox('Cannot open session data folder', error.message); app.quit(); }
     if (store) {
       const entry = join(app.getAppPath(), 'dist-desktop', 'ui', 'index.html');
@@ -63,7 +63,7 @@ else {
         } catch (error) { return fail(error); }
       });
       ipcMain.handle('sessions:open-folder', async event => {
-        try { verify(event); const error = await shell.openPath(store.directory); if (error) throw new Error(error); return { ok: true }; }
+        try { verify(event); const error = await shell.openPath(store.collection?.directory ?? store.directory); if (error) throw new Error(error); return { ok: true }; }
         catch (error) { return fail(error); }
       });
       window.once('ready-to-show', () => window.show());

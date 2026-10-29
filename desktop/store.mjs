@@ -1,6 +1,7 @@
 import { mkdirSync, readdirSync, readFileSync, openSync, writeFileSync, fsyncSync, closeSync, renameSync, unlinkSync, lstatSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { writeCollection, pruneCollections } from './collection.mjs';
 
 const prefix = 'ainogo.session.v1.';
 const idPattern = /^[a-zA-Z0-9-]{1,80}$/;
@@ -29,10 +30,22 @@ export function atomicWrite(filename, text) {
 
 export class FileSessionStore {
   notices = new Set();
-  constructor(directory, parseSession) {
+  constructor(directory, parseSession, serializers, collectionWrite = atomicWrite) {
     this.directory = directory;
     this.parseSession = parseSession;
+    this.serializers = serializers;
+    this.collectionWrite = collectionWrite;
     mkdirSync(directory, { recursive: true, mode: 0o700 });
+    try {
+      const root = join(directory, 'exports');
+      if (lstatSync(root).isDirectory() && !lstatSync(root).isSymbolicLink()) {
+        const previous = JSON.parse(this.read(join(root, 'CURRENT.json')) ?? 'null');
+        if (/^[a-f0-9-]{36}$/.test(previous?.snapshotId) && previous.directory === join(root, previous.snapshotId)) {
+          this.collection = previous;
+        }
+      }
+    } catch { /* Rebuild missing or damaged collection metadata from session files. */ }
+    this.updateCollection();
   }
   id(key) {
     if (typeof key !== 'string' || !key.startsWith(prefix) || !idPattern.test(key.slice(prefix.length))) {
@@ -103,8 +116,32 @@ export class FileSessionStore {
     }
     atomicWrite(filename + '.bak', previous ? previousRaw : raw);
     atomicWrite(filename, raw);
+    this.updateCollection();
+  }
+  updateCollection() {
+    try {
+      const sessions = [];
+      for (const key of this.listKeys()) {
+        try {
+          const session = this.valid(this.getItem(key), this.id(key));
+          if (session) sessions.push(session);
+          else this.notices.add(`Session ${this.id(key)} is damaged and could not be included in the combined files.`);
+        } catch {
+          this.notices.add(`Session ${this.id(key)} could not be read and was preserved outside the combined files.`);
+        }
+      }
+      sessions.sort((a, b) => a.startedAt.localeCompare(b.startedAt) || a.sessionId.localeCompare(b.sessionId));
+      const previous = this.collection?.snapshotId;
+      this.collection = writeCollection(this.directory, sessions, this.serializers, this.collectionWrite);
+      this.collectionError = '';
+      // Keep the current and previous complete snapshots for recovery.
+      try { pruneCollections(this.directory, new Set([previous, this.collection.snapshotId])); } catch { /* Non-critical cleanup. */ }
+    } catch (error) {
+      this.collectionError = `Combined JSON, CSV and Excel files could not be updated: ${error.message}. Individual session files are retained. Retry by reopening the app.`;
+    }
   }
   info() {
-    return { directory: this.directory, notices: [...this.notices] };
+    return { directory: this.directory, notices: [...this.notices], collection: this.collection ?? null,
+      collectionError: this.collectionError };
   }
 }

@@ -99,13 +99,13 @@ test('refresh resumes the next unanswered rating with original order and prior d
 test('new sessions retain earlier sessions for later CSV download', async ({ page }) => {
   await begin(page); await complete(page);
   const [first] = await sessions(page);
-  await page.getByRole('button', { name: 'New session', exact: true }).click();
+  await page.getByRole('button', { name: 'Next participant', exact: true }).click();
   await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await complete(page);
   expect(await sessions(page)).toHaveLength(2);
-  await page.getByRole('button', { name: 'New session', exact: true }).click();
+  await page.getByRole('button', { name: 'Next participant', exact: true }).click();
   await expect(page.locator('#session-select option')).toHaveCount(2);
   if (page.viewportSize().width < 600) await page.setViewportSize({ width: 320, height: 720 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -125,11 +125,20 @@ test('quota failures preserve downloadable in-memory data and show a persistent 
   expect(await download(page)).toHaveLength(16);
 });
 
-test('damaged local records do not prevent recording or partial CSV export', async ({ page }) => {
+test('saving failures allow an emergency CSV export before completion', async ({ page }) => {
+  await page.addInitScript(() => { Storage.prototype.setItem = () => { throw new DOMException('Quota', 'QuotaExceededError'); }; });
+  await begin(page); await rate(page, 2);
+  await expect(page.locator('#storage-status')).toContainText('saving is unavailable');
+  expect(await download(page)).toHaveLength(1);
+});
+
+test('CSV export stays hidden during normal trials and appears on completion despite damaged prior records', async ({ page }) => {
   await page.addInitScript(() => { localStorage.setItem('ainogo.session.v1.broken', '{'); });
   await begin(page); await rate(page, 2);
   await expect(page.locator('#storage-status')).toContainText('damaged saved sessions');
-  expect(await download(page)).toHaveLength(1);
+  await expect(page.locator('#download-session')).toBeHidden();
+  await rate(page, 8); await complete(page, 2);
+  expect(await download(page)).toHaveLength(16);
   expect(await page.evaluate(() => localStorage.getItem('ainogo.session.v1.broken'))).toBe('{');
 });
 

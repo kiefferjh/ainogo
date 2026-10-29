@@ -12,8 +12,13 @@ Initial preview builds are unsigned by a trusted commercial publisher; see
 [desktop instructions](DESKTOP.md) for platform details and local data locations.
 
 Each rating is automatically saved to a session JSON file on the computer.
-Use **Open data folder** to locate it and **Export session CSV** for analysis.
-Keep a separate backup of that folder: local storage cannot protect against a
+The app also updates matching **all-experiments.json**, **all-experiments.csv**,
+and **all-experiments.xlsx** files containing every saved experiment. Use
+**Open data folder** to open the latest complete set. Export for an individual
+session appears on completion (or earlier if saving fails).
+Choose **Next participant** after a test to start with a new random session ID;
+resuming an interrupted test keeps its existing ID and responses.
+Keep a separate backup of the data folder: local storage cannot protect against a
 failed or lost computer. Session files are separate from the app installation.
 
 Choose **Take test online — not saved** on the [website](https://kiefferjh.github.io/ainogo/)

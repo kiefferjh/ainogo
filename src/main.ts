@@ -80,6 +80,7 @@ try {
   let storage: SessionStorage | null = null;
   let savedSessions: StudySession[] = [];
   let sessionConflict = false;
+  let collectionUnavailable = false;
   let paused = false;
   let promptStartedAt: number | null = null;
 
@@ -139,6 +140,13 @@ try {
     resumeSession.disabled = !saved || !canResume(saved);
     downloadSaved.disabled = !saved || saved.responses.length === 0;
   };
+  const desktopStorageMessage = () => {
+    if (!desktop) return;
+    const info = desktopValue(desktop.info());
+    collectionUnavailable = !!info.collectionError;
+    storageStatus.textContent = info.collectionError ||
+      `All experiments are saved together as JSON, CSV and Excel (${info.collection?.sessionCount ?? 0} sessions). Select Open data folder to find the latest matching files. Individual session files: ${info.directory}. ${info.notices.join(' ')}`;
+  };
   try {
     storage = desktop ? {
       get length() { return desktopValue(desktop.listKeys()).length; },
@@ -149,8 +157,7 @@ try {
     const result = readSessions(storage);
     savedSessions = result.sessions;
     if (desktop) {
-      const info = desktopValue(desktop.info());
-      storageStatus.textContent = `Session files are saved at: ${info.directory}. Back up this folder or export CSVs. ${info.notices.join(' ')}`;
+      desktopStorageMessage();
       if (result.damaged) storageStatus.textContent += ' Some damaged records could not be read and were preserved.';
     } else {
       storageStatus.textContent = result.damaged
@@ -174,6 +181,7 @@ try {
     if (unsavedPreview || !storage || sessionConflict) return;
     try {
       saveSession(storage, session);
+      desktopStorageMessage();
     } catch (error) {
       if (error instanceof SessionConflictError) {
         sessionConflict = true;
@@ -204,7 +212,9 @@ try {
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
-  downloadSession.addEventListener('click', () => { if (!unsavedPreview && session.responses.length) downloadCsv(session); });
+  downloadSession.addEventListener('click', () => {
+    if (!unsavedPreview && session.responses.length && (session.completedAt || !storage || sessionConflict)) downloadCsv(session);
+  });
   downloadSaved.addEventListener('click', () => {
     const saved = selectedSession();
     if (saved?.responses.length) downloadCsv(saved);
@@ -391,14 +401,17 @@ try {
     retryImage.hidden = true;
     clearRatingTimer();
     cancelPromptPresentation();
-    downloadSession.hidden = unsavedPreview || session.responses.length === 0;
+    downloadSession.hidden = unsavedPreview || session.responses.length === 0 ||
+      (currentScreen !== 'complete' && storage !== null && !sessionConflict);
     newSession.hidden = currentScreen !== 'complete' && !sessionConflict;
+    newSession.textContent = unsavedPreview ? 'New session' : 'Next participant';
     savedSection.hidden = currentScreen !== 'welcome' || savedSessions.length === 0;
     sessionInfo.textContent = sessionStarted ? `Session: ${session.sessionId} — ${session.responses.length}/${sessionImages.length * 2} ratings recorded` : '';
     if (unsavedPreview) storageStatus.textContent = 'Online test — not saved. Ratings and reaction times stay in memory only and disappear when you close or refresh this page.';
 
     if (currentScreen === 'welcome') {
       screenDescription.textContent = `You will rate ${sessionImages.length} images for pleasantness and arousal.`;
+      if (desktop) screenDescription.textContent += ' Start begins a new participant with a unique session ID. Resume session continues an interrupted test with its existing ID.';
       startButton.textContent = 'Start';
     } else if (currentScreen === 'instructions') {
       const inputInstructions = experimentConfig.enableMouse && experimentConfig.enableKeyboard
@@ -505,7 +518,11 @@ try {
           `${response.imageOrder}. ${response.imageId}: valence ${response.valence}, arousal ${response.arousal}.`
         ).join(' ') + ' ' +
         (unsavedPreview ? ' Online test complete. These results were not saved. Closing or refreshing this page discards them. Download the desktop app to save future sessions.'
-          : desktop ? ' Session files are saved on this computer. Export CSVs for analysis and keep a separate backup.'
+          : desktop ? (storage === null
+            ? ' Saving failed. Export this participant’s CSV before closing or starting the next participant.'
+            : collectionUnavailable
+              ? ' This participant’s session file is saved, but the combined files need recovery. See the saving warning below before continuing.'
+              : ' This participant’s session is saved. The combined JSON, CSV and Excel files include all saved experiments. Select Next participant for a new, unique session ID.')
           : ' Download your session CSV to keep the ratings and reaction times. Saved sessions remain on this browser unless its data is cleared.');
     }
   };

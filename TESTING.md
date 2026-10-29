@@ -3,6 +3,12 @@
 Desktop file persistence is covered by `tests/desktop-store.test.mjs` and
 `npm run test:desktop`. The desktop release workflow also runs the restart and
 CSV export smoke test against the packaged executable on each operating system.
+The smoke test completes two participants with distinct session IDs, verifies
+32 combined response rows, compares JSON against a re-read Excel workbook, and
+checks the CSV row count. Store tests compare every field across JSON, CSV and
+Excel for 25 participants, exercise incomplete sessions, and inject workbook and
+manifest write failures to verify that the last complete set remains current.
+Deleted collections rebuild on restart from individual session files.
 It checks local-only loading, absence of Node access in the renderer, and invalid
 session-key rejection. Native smoke tests use temporary data/profile folders.
 On a Linux development machine without a usable Chromium OS sandbox, the test
@@ -30,6 +36,9 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/google/chrome/chrome npm run test:brows
 Browser tests cover desktop and mobile-sized Chrome layouts, full-session data
 integrity, focus changes, repeated input, image errors, and stalled-request
 recovery. Mobile emulation is not a substitute for testing physical phones.
+CSV stays hidden during normal trials and appears on completion. Saving failures
+allow an earlier recovery export. The online preview remains unsaved, including
+after interruptions, and does not change previously saved browser sessions.
 The suite also completes sessions with real browser touch events, delays image
 delivery, and checks reminder resets and completion after advancing the clock.
 Touch sessions use CPU throttling and wait for each confirmed prompt transition

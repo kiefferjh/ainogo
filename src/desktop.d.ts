@@ -4,7 +4,8 @@ interface Window {
     listKeys(): DesktopResult<string[]>;
     getItem(key: string): DesktopResult<string | null>;
     setItem(key: string, raw: string): DesktopResult<void>;
-    info(): DesktopResult<{ directory: string; notices: string[] }>;
+    info(): DesktopResult<{ directory: string; notices: string[]; collectionError: string;
+      collection: { directory: string; snapshotId: string; sessionCount: number; ratingCount: number } | null }>;
     exportCsv(raw: string): Promise<DesktopResult<{ canceled: boolean }>>;
     openFolder(): Promise<DesktopResult<void>>;
   };

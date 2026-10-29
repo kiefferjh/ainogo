@@ -117,19 +117,29 @@ function csvCell(value: string | number | boolean | null): string {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-export function sessionCsv(session: StudySession): string {
-  const columns = [
+export const sessionColumns = [
     'schema_version', 'session_id', 'session_started_at', 'session_completed_at',
     'image_id', 'image_filename', 'image_order', 'rating_dimension', 'rating_position',
     'rating_value', 'reaction_time_ms', 'input_method', 'responded_at',
     'time_limit_ms', 'exceeded_time_limit', 'interrupted', 'rating_order',
-  ];
-  const rows = session.responses.map(r => [
-    session.schemaVersion, session.sessionId, session.startedAt, session.completedAt,
-    r.imageId, r.imageFilename, r.imageOrder, r.dimension, r.ratingPosition,
-    r.value, r.reactionTimeMs, r.inputMethod, r.respondedAt,
-    session.settings.timeLimitMs, r.exceededTimeLimit, r.interrupted,
-    session.settings.ratingOrder.join(' then '),
-  ]);
-  return '\uFEFF' + [columns, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
+];
+
+export function sessionRecords(session: StudySession): Record<string, string | number | boolean | null>[] {
+  return session.responses.map(r => {
+    const values = [session.schemaVersion, session.sessionId, session.startedAt, session.completedAt,
+      r.imageId, r.imageFilename, r.imageOrder, r.dimension, r.ratingPosition,
+      r.value, r.reactionTimeMs, r.inputMethod, r.respondedAt,
+      session.settings.timeLimitMs, r.exceededTimeLimit, r.interrupted,
+      session.settings.ratingOrder.join(' then ')];
+    return Object.fromEntries(sessionColumns.map((column, index) => [column, values[index]]));
+  });
+}
+
+export function csvTable(columns: string[], records: Record<string, string | number | boolean | null>[]): string {
+  return '\uFEFF' + [columns, ...records.map(row => columns.map(column => row[column] ?? null))]
+    .map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
+}
+
+export function sessionCsv(session: StudySession): string {
+  return csvTable(sessionColumns, sessionRecords(session));
 }

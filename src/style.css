@@ -81,8 +81,16 @@ button:focus-visible, .download-button:focus-visible {
 
 .download-button {
   display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   padding: 0.65rem 1rem;
   text-decoration: none;
+}
+
+.platform-icon {
+  width: 1.1em;
+  height: 1.1em;
+  flex-shrink: 0;
 }
 
 .download-notes {

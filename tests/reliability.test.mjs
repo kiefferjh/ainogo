@@ -639,6 +639,14 @@ test('online preview never saves, including interruptions, image failures and co
   assert.equal(app.errors.length, 0);
 });
 
+test('normal sessions offer CSV only after completion', () => {
+  const app = setup({}, ['plate']); app.begin(); app.load(); app.key('2');
+  assert.equal(app.nodes['download-session'].hidden, true);
+  app.key('8');
+  assert.equal(app.nodes['download-session'].hidden, false);
+  assert.equal(app.nodes['new-session'].textContent, 'Next participant');
+});
+
 test('online preview preserves existing sessions and cannot be resumed after refresh', () => {
   const saved = setup({}, ['plate']); saved.begin(); saved.load(); saved.key('2');
   const before = [...saved.storage.data];

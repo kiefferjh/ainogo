@@ -12,6 +12,29 @@ the Windows/macOS/Linux paths, backup instructions, and offline download details
 The **Open data folder** button shows the actual folder. Desktop CSV export uses
 a native Save dialog. No session files are stored inside the installed program.
 
+The desktop app additionally maintains matching `all-experiments.json`,
+`all-experiments.csv`, and `all-experiments.xlsx` snapshots across all saved
+sessions in the same data folder. **Open data folder** opens the latest trio.
+All formats use the same rows and columns; JSON wraps the rows with metadata,
+CSV protects formula-like text, and Excel stores numbers and booleans with their
+types. `snapshot_id` and `snapshot_updated_at` identify the common save.
+Extra columns retain `record_type`, revision, pending interruption, study
+signature, original image IDs (JSON text), and all configured input/presentation
+flags. A session without responses has one `record_type=session` row with empty
+rating fields; otherwise it has one `record_type=rating` row per response.
+Excel collections exceeding one sheet's row limit continue on additional sheets.
+
+Each trio is staged and flushed before an atomic `exports/CURRENT.json` pointer
+switch makes it current. Individual session JSON files are authoritative and
+rebuild these combined files at startup. A collection write failure is shown
+separately from a session-save failure; the last complete trio remains available.
+See DESKTOP.md for snapshot paths, retention and backup details. The browser
+version cannot update local files automatically; this feature is in the desktop app.
+
+**Next participant** starts a new run with a fresh random session ID. Earlier
+runs stay in the collection. Resuming an interrupted run retains that session's
+ID; IDs do not identify a person across visits.
+
 **Take test online — not saved** keeps ratings and reaction times only in memory.
 It does not write session data to browser storage, upload responses, or offer CSV
 export. Closing or refreshing discards the test. Previously saved browser sessions
@@ -90,8 +113,10 @@ does not fabricate a missing rating or auto-advance after a reminder.
 | `interrupted` | Whether this question was interrupted/restarted. |
 | `rating_order` | Configured order, such as `valence then arousal`. |
 
-In browser-saving mode, **Download session CSV** is available after the first rating, including for
-unfinished sessions. Files use `ainogo-<session-id>.csv`, UTF-8 with a BOM, CRLF
+In browser-saving mode, **Download session CSV** appears on completion. If
+saving fails or a session conflicts, it appears earlier for recovery. Previously
+saved sessions can also be exported from the welcome screen. Files use
+`ainogo-<session-id>.csv`, UTF-8 with a BOM, CRLF
 record separators, CSV escaping, and spreadsheet formula protection for text.
 Repeated downloads are snapshots of the same session, not additional sessions;
 avoid counting them twice. The local JSON also retains a study-content signature
