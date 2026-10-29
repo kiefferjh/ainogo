@@ -16,8 +16,11 @@ Use **Open data folder** to locate it and **Export session CSV** for analysis.
 Keep a separate backup of that folder: local storage cannot protect against a
 failed or lost computer. Session files are separate from the app installation.
 
-The [browser preview](https://kiefferjh.github.io/ainogo/) remains available,
-but its browser-local records are separate from the desktop app's files.
+Choose **Take test online — not saved** on the [website](https://kiefferjh.github.io/ainogo/)
+to try the study without a download. Ratings and reaction times stay in memory,
+are not uploaded, and disappear when the page closes or refreshes. CSV export is
+available in the desktop app and the secondary browser-saving option. Existing
+browser-local records remain separate from the desktop app's files.
 
 ## Development
 

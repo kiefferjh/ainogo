@@ -12,7 +12,13 @@ the Windows/macOS/Linux paths, backup instructions, and offline download details
 The **Open data folder** button shows the actual folder. Desktop CSV export uses
 a native Save dialog. No session files are stored inside the installed program.
 
-The browser preview saves after Begin and after each rating to this site's `localStorage`,
+**Take test online — not saved** keeps ratings and reaction times only in memory.
+It does not write session data to browser storage, upload responses, or offer CSV
+export. Closing or refreshing discards the test. Previously saved browser sessions
+are preserved and remain available separately on the welcome screen.
+
+The secondary **Other option: save a session in this browser** mode saves after
+Begin and after each rating to this site's `localStorage`,
 under `ainogo.session.v1.<session-id>`. Each session has its own key. Use browser
 developer tools → Application/Storage → Local Storage to inspect the JSON.
 The saved records contain the image order, configuration, individual responses,
@@ -84,7 +90,7 @@ does not fabricate a missing rating or auto-advance after a reminder.
 | `interrupted` | Whether this question was interrupted/restarted. |
 | `rating_order` | Configured order, such as `valence then arousal`. |
 
-**Download session CSV** is available after the first rating, including for
+In browser-saving mode, **Download session CSV** is available after the first rating, including for
 unfinished sessions. Files use `ainogo-<session-id>.csv`, UTF-8 with a BOM, CRLF
 record separators, CSV escaping, and spreadsheet formula protection for text.
 Repeated downloads are snapshots of the same session, not additional sessions;

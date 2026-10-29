@@ -60,7 +60,7 @@ function setup(overrides = {}, imageList = ['plate', 'chair'], environment = {})
     'start-button', 'screen-description', 'status', 'rating-panel',
     'study-image', 'rating-buttons', 'rating-question', 'scale-labels', 'retry-image',
     'session-info', 'session-select', 'saved-sessions', 'resume-session', 'download-saved',
-    'storage-status', 'download-session', 'new-session',
+    'storage-status', 'download-session', 'new-session', 'preview-button',
   ].map(id => [id, new Element()]));
   const document = new Element();
   document.baseURI = 'https://study.test/ainogo/';
@@ -614,4 +614,41 @@ test('CSV includes one row per rating and safely escapes spreadsheet formulas an
   assert.ok(sessionModule.sessionCsv(saved).includes('"\'=HYPERLINK(""bad"")"'));
   saved.responses[0].imageFilename = 'a,b"c\nd';
   assert.ok(sessionModule.sessionCsv(saved).includes('"a,b""c\nd"'));
+});
+
+test('online preview never saves, including interruptions, image failures and completion', () => {
+  const storage = new MemoryStorage();
+  storage.setItem('unrelated', 'keep');
+  storage.setItem = () => { assert.fail('Unsaved preview attempted a storage write'); };
+  const app = setup({}, ['plate'], { storage });
+  app.nodes['preview-button'].emit('click');
+  assert.match(app.description(), /unsaved online test/);
+  app.nodes['start-button'].emit('click');
+  app.load();
+  app.window.emit('blur'); app.window.emit('focus'); app.flushFrames();
+  app.nodes['study-image'].emit('error');
+  app.nodes['retry-image'].emit('click'); app.load();
+  // Changes in other tabs must not pause an independent, in-memory test.
+  app.window.emit('storage', { key: null, newValue: null });
+  app.key('2'); app.key('8');
+  assert.match(app.description(), /complete/);
+  assert.match(app.status(), /results were not saved/);
+  assert.equal(app.nodes['download-session'].hidden, true);
+  assert.equal(storage.length, 1);
+  assert.equal(storage.getItem('unrelated'), 'keep');
+  assert.equal(app.errors.length, 0);
+});
+
+test('online preview preserves existing sessions and cannot be resumed after refresh', () => {
+  const saved = setup({}, ['plate']); saved.begin(); saved.load(); saved.key('2');
+  const before = [...saved.storage.data];
+  const preview = setup({}, ['plate'], { storage: saved.storage });
+  preview.nodes['preview-button'].emit('click');
+  preview.nodes['start-button'].emit('click'); preview.load(); preview.key('9');
+  assert.deepEqual([...saved.storage.data], before);
+  const refreshed = setup({}, ['plate'], { storage: saved.storage });
+  assert.equal(refreshed.nodes['session-select'].children.length, 1);
+  refreshed.nodes['resume-session'].emit('click'); refreshed.load(); refreshed.key('8');
+  assert.equal(savedData(refreshed).responses[0].value, 2);
+  assert.match(refreshed.status(), /valence 2, arousal 8/);
 });

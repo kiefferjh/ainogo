@@ -76,6 +76,7 @@ try {
     responses: [], pendingInterrupted: false, revision: 0,
   };
   let sessionStarted = false;
+  let unsavedPreview = false;
   let storage: SessionStorage | null = null;
   let savedSessions: StudySession[] = [];
   let sessionConflict = false;
@@ -101,6 +102,7 @@ try {
   let promptFrame: number | null = null;
 
   const startButton = document.querySelector<HTMLButtonElement>('#start-button');
+  const previewButton = document.querySelector<HTMLButtonElement>('#preview-button');
   const screenDescription = document.querySelector<HTMLParagraphElement>('#screen-description');
   const statusMessage = document.querySelector<HTMLParagraphElement>('#status');
   const ratingPanel = document.querySelector<HTMLElement>('#rating-panel');
@@ -153,7 +155,7 @@ try {
     } else {
       storageStatus.textContent = result.damaged
         ? 'Some damaged saved sessions could not be read. Valid sessions are listed below.'
-        : 'Responses are saved only on this browser/device. Download CSV files to keep a separate copy.';
+        : 'Only the optional browser-saving mode stores responses here. Download CSV files to keep a separate copy.';
     }
   } catch {
     storage = null;
@@ -169,7 +171,7 @@ try {
   sessionSelect.addEventListener('change', updateSavedButtons);
 
   const saveCurrentSession = () => {
-    if (!storage || sessionConflict) return;
+    if (unsavedPreview || !storage || sessionConflict) return;
     try {
       saveSession(storage, session);
     } catch (error) {
@@ -202,7 +204,7 @@ try {
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
-  downloadSession.addEventListener('click', () => { if (session.responses.length) downloadCsv(session); });
+  downloadSession.addEventListener('click', () => { if (!unsavedPreview && session.responses.length) downloadCsv(session); });
   downloadSaved.addEventListener('click', () => {
     const saved = selectedSession();
     if (saved?.responses.length) downloadCsv(saved);
@@ -370,18 +372,30 @@ try {
 
   // Read the current state and update the visible page to match it.
   const render = () => {
+    const onlineTest = document.querySelector<HTMLElement>('#online-test');
+    if (onlineTest) onlineTest.hidden = !!desktop || currentScreen !== 'welcome';
+    const browserOptions = document.querySelector<HTMLDetailsElement>('#browser-save-options');
+    if (browserOptions) {
+      browserOptions.hidden = currentScreen === 'rating' || currentScreen === 'complete';
+      if (desktop || currentScreen === 'instructions') browserOptions.open = true;
+    }
+    for (const id of ['browser-save-summary', 'browser-save-description']) {
+      const element = document.querySelector<HTMLElement>(`#${id}`);
+      if (element) element.hidden = !!desktop || currentScreen !== 'welcome';
+    }
     const desktopDownload = document.querySelector<HTMLElement>('#desktop-download');
-    if (desktopDownload) desktopDownload.hidden = !!desktop || currentScreen === 'rating';
+    if (desktopDownload) desktopDownload.hidden = !!desktop || (currentScreen !== 'welcome' && currentScreen !== 'complete');
     ratingPanel.hidden = currentScreen !== 'rating';
     startButton.hidden = currentScreen === 'rating' || currentScreen === 'complete';
     statusMessage.textContent = '';
     retryImage.hidden = true;
     clearRatingTimer();
     cancelPromptPresentation();
-    downloadSession.hidden = session.responses.length === 0;
+    downloadSession.hidden = unsavedPreview || session.responses.length === 0;
     newSession.hidden = currentScreen !== 'complete' && !sessionConflict;
     savedSection.hidden = currentScreen !== 'welcome' || savedSessions.length === 0;
     sessionInfo.textContent = sessionStarted ? `Session: ${session.sessionId} — ${session.responses.length}/${sessionImages.length * 2} ratings recorded` : '';
+    if (unsavedPreview) storageStatus.textContent = 'Online test — not saved. Ratings and reaction times stay in memory only and disappear when you close or refresh this page.';
 
     if (currentScreen === 'welcome') {
       screenDescription.textContent = `You will rate ${sessionImages.length} images for pleasantness and arousal.`;
@@ -395,7 +409,9 @@ try {
       screenDescription.textContent =
         'For each image, you will give two ratings on a scale from 1 to 9: ' +
         'one for valence (pleasantness) and one for arousal. ' + inputInstructions +
-        'Reaction time is recorded separately for each question. Download your session CSV when finished. ' +
+        (unsavedPreview
+          ? 'This is an unsaved online test. Ratings and reaction times are held in memory only; closing or refreshing discards them. '
+          : 'Reaction time is recorded separately for each question. Download your session CSV when finished. ') +
         'The final study instructions will be added once the study design is confirmed.';
       startButton.textContent = 'Begin';
     } else if (currentScreen === 'rating') {
@@ -488,10 +504,19 @@ try {
         responses.map((response) =>
           `${response.imageOrder}. ${response.imageId}: valence ${response.valence}, arousal ${response.arousal}.`
         ).join(' ') + ' ' +
-        (desktop ? ' Session files are saved on this computer. Export CSVs for analysis and keep a separate backup.'
+        (unsavedPreview ? ' Online test complete. These results were not saved. Closing or refreshing this page discards them. Download the desktop app to save future sessions.'
+          : desktop ? ' Session files are saved on this computer. Export CSVs for analysis and keep a separate backup.'
           : ' Download your session CSV to keep the ratings and reaction times. Saved sessions remain on this browser unless its data is cleared.');
     }
   };
+
+  previewButton?.addEventListener('click', () => {
+    if (desktop || currentScreen !== 'welcome') return;
+    unsavedPreview = true;
+    currentScreen = 'instructions';
+    render();
+    screenDescription.focus();
+  });
 
   startButton.addEventListener('click', (event) => {
     if (event.detail > 1) return;
@@ -564,7 +589,7 @@ try {
     else continueSession();
   });
   window.addEventListener('storage', event => {
-    if (!sessionStarted || (event.key !== null && event.key !== sessionStoragePrefix + session.sessionId)) return;
+    if (unsavedPreview || !sessionStarted || (event.key !== null && event.key !== sessionStoragePrefix + session.sessionId)) return;
     const other = event.newValue === null ? null : parseSession(event.newValue);
     if (!other || JSON.stringify(other) !== JSON.stringify(session)) {
       sessionConflict = true;
@@ -580,6 +605,7 @@ try {
   render();
   // Static HTML remains disabled if imports fail or initialization never runs.
   startButton.disabled = false;
+  if (previewButton) previewButton.disabled = false;
 } catch (error) {
   console.error(error);
   const startButton = document.querySelector<HTMLButtonElement>('#start-button');
@@ -587,6 +613,8 @@ try {
   const statusMessage = document.querySelector<HTMLElement>('#status');
   const screenDescription = document.querySelector<HTMLElement>('#screen-description');
   if (startButton) startButton.disabled = true;
+  const previewButton = document.querySelector<HTMLButtonElement>('#preview-button');
+  if (previewButton) previewButton.disabled = true;
   if (ratingPanel) ratingPanel.hidden = true;
   if (screenDescription) screenDescription.textContent = 'Study unavailable.';
   if (statusMessage) {

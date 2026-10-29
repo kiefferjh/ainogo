@@ -8,6 +8,12 @@
   <body>
     <main>
       <h1>Image Rating Experiment</h1>
+      <section id="online-test" aria-labelledby="online-test-heading">
+        <h2 id="online-test-heading">Try the test online</h2>
+        <p>No download needed. Your ratings and reaction times <strong>will not be saved</strong> or sent to a server. They disappear when you close or refresh this page.</p>
+        <button id="preview-button" type="button" disabled>Take test online — not saved</button>
+        <p class="download-notes">Want to keep your results? Download the desktop app below.</p>
+      </section>
       <section id="desktop-download" aria-labelledby="desktop-download-heading">
         <h2 id="desktop-download-heading">Download the desktop app</h2>
         <p>Run offline, save sessions on your computer, and export CSV files.</p>
@@ -21,7 +27,11 @@
         </p>
       </section>
       <p id="screen-description" tabindex="-1">Loading the study…</p>
-      <button id="start-button" type="button" disabled>Start</button>
+      <details id="browser-save-options">
+        <summary id="browser-save-summary">Other option: save a session in this browser</summary>
+        <p id="browser-save-description">Browser storage can be cleared. Use the desktop app for local session files, or download a CSV before clearing browser data.</p>
+        <button id="start-button" type="button" disabled>Start</button>
+      </details>
       <p id="session-info"></p>
       <section id="saved-sessions" hidden aria-labelledby="saved-sessions-heading">
         <h2 id="saved-sessions-heading">Sessions saved on this browser</h2>

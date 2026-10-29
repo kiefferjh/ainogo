@@ -7,6 +7,7 @@ const sessions = page => page.evaluate(() => Object.keys(localStorage)
 
 async function begin(page) {
   await page.goto('/');
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await expect(page.getByRole('button', { name: '2', exact: true })).toBeEnabled();
@@ -99,6 +100,7 @@ test('new sessions retain earlier sessions for later CSV download', async ({ pag
   await begin(page); await complete(page);
   const [first] = await sessions(page);
   await page.getByRole('button', { name: 'New session', exact: true }).click();
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await complete(page);

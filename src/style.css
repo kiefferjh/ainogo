@@ -47,7 +47,7 @@ button:focus-visible, .download-button:focus-visible {
   outline-offset: 4px;
 }
 
-#desktop-download {
+#desktop-download, #online-test {
   margin-block: 1rem 1.5rem;
   padding: 1rem;
   border: 1px solid #cfd8e4;
@@ -55,9 +55,22 @@ button:focus-visible, .download-button:focus-visible {
   background: white;
 }
 
-#desktop-download h2 {
+#desktop-download h2, #online-test h2 {
   margin-top: 0;
   font-size: 1.2rem;
+}
+
+#online-test {
+  border: 2px solid #2454a6;
+}
+
+#browser-save-options summary {
+  cursor: pointer;
+  color: #2454a6;
+}
+
+#browser-save-options {
+  margin-block: 1rem;
 }
 
 .download-actions {

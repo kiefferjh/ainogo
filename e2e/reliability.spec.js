@@ -15,6 +15,7 @@ async function configuredPage(page, overrides) {
 
 async function begin(page) {
   await page.goto('/');
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await expect(page.getByRole('button', { name: '1', exact: true })).toBeEnabled();
@@ -52,6 +53,7 @@ test('all eight images complete with mixed input and no runtime errors', async (
 
 test('double-clicking Start does not skip instructions', async ({ page }) => {
   await page.goto('/');
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).dblclick();
   await expect(page.getByRole('button', { name: 'Begin', exact: true })).toBeVisible();
   await expect(page.locator('#rating-panel')).toBeHidden();
@@ -124,6 +126,7 @@ test('retrying an image URL with a fragment starts a fresh network request', asy
     else return route.continue();
   });
   await configuredPage(page, {});
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await expect(page.locator('#status')).toContainText('Loading image');
@@ -174,6 +177,7 @@ test('a stalled image offers retry instead of leaving the participant stuck', as
     else return route.continue();
   });
   await page.goto('/');
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await expect(page.locator('#status')).toContainText('Loading image');
@@ -196,6 +200,7 @@ test('rating controls fit the viewport without horizontal scrolling', async ({ p
 
 test('holding Enter on Start does not bypass instructions', async ({ page }) => {
   await page.goto('/');
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).focus();
   await page.keyboard.down('Enter');
   await page.keyboard.down('Enter');
@@ -206,6 +211,7 @@ test('holding Enter on Start does not bypass instructions', async ({ page }) => 
 
 test('keyboard-only participants can Tab to ratings and activate with Enter and Space', async ({ page }) => {
   await configuredPage(page, { enableMouse: false });
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await expect(page.locator('#rating-question')).toBeFocused();
@@ -226,6 +232,7 @@ test('keyboard-only participants can Tab to ratings and activate with Enter and 
 
 test('mouse-only participants cannot submit ratings with native keyboard activation', async ({ page }) => {
   await configuredPage(page, { enableKeyboard: false });
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   const button = page.getByRole('button', { name: '4', exact: true });
@@ -241,6 +248,7 @@ test('mouse-only participants cannot submit ratings with native keyboard activat
 
 test('arousal-first mode completes a real session with correct values', async ({ page }) => {
   await configuredPage(page, { ratingOrder: ['arousal', 'valence'] });
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   for (let index = 1; index <= 8; index++) {
@@ -256,7 +264,8 @@ test('arousal-first mode completes a real session with correct values', async ({
 
 test('invalid configuration visibly disables the study instead of leaving a dead Start button', async ({ page }) => {
   await configuredPage(page, { enableKeyboard: false, enableMouse: false });
-  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeDisabled();
+  await expect(page.locator('#start-button')).toBeDisabled();
+  await expect(page.locator('#preview-button')).toBeDisabled();
   await expect(page.locator('#status')).toContainText('This study cannot start');
   await expect(page.locator('#rating-panel')).toBeHidden();
 });
@@ -264,7 +273,8 @@ test('invalid configuration visibly disables the study instead of leaving a dead
 test('a failed script download leaves Start disabled with recovery instructions', async ({ page }) => {
   await page.route('**/assets/*.js', route => route.abort());
   await page.goto('/');
-  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeDisabled();
+  await expect(page.locator('#start-button')).toBeDisabled();
+  await expect(page.locator('#preview-button')).toBeDisabled();
   await expect(page.locator('#status')).toContainText('check your connection and refresh');
 });
 
@@ -274,7 +284,8 @@ test('JavaScript-disabled browsers receive an explanation and cannot start', asy
     const page = await context.newPage();
     await page.goto(baseURL);
     await expect(page.getByText('JavaScript must be enabled')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeDisabled();
+    await expect(page.locator('#start-button')).toBeDisabled();
+    await expect(page.locator('#preview-button')).toBeDisabled();
   } finally {
     await context.close();
   }
@@ -305,6 +316,7 @@ test('slow image delivery blocks responses until the new image is ready', async 
 test('rating reminders reset for new questions and cannot overwrite completion', async ({ page }) => {
   await page.clock.install();
   await configuredPage(page, { timeLimitMs: 1000 });
+  await page.locator('#browser-save-summary').click();
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await expect(page.getByRole('button', { name: '2', exact: true })).toBeEnabled();
