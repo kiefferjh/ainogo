@@ -1,5 +1,39 @@
 # Reliability testing
 
+## Verify published downloads
+
+The **Verify published desktop downloads** workflow downloads the requested
+release assets and verifies each exact filename against the published SHA256SUMS.
+It tests the extracted Linux archive and actual AppImage launcher on Ubuntu
+22.04/24.04, installs the Windows setup EXE into a path containing spaces, runs
+the actual Windows portable launcher, and extracts the Mac ZIP on both Intel
+and Apple Silicon macOS 15 runners. Mac checks also verify both architectures
+and the bundle's ad-hoc signature. It does not rebuild or replace the downloads.
+
+The full executable test checks the runtime architecture and version, two
+participants, partial-session survival across restart, matching JSON/CSV/Excel,
+session-only CSV, and blocked network/Node access. Portable/AppImage launcher
+tests verify the actual x64 runtime, clean launch/exit, offline access, and
+partial-session recovery. Executable and participant-data paths contain spaces.
+Each job retains a JSON evidence report as an Actions artifact.
+
+Run locally on a matching OS with GitHub CLI authenticated:
+
+```sh
+AINOGO_RELEASE_TAG=desktop-v1.2.1 AINOGO_DOWNLOAD_KIND=linux-archive node scripts/verify-download.mjs
+```
+
+Kinds: `linux-archive`, `linux-appimage`, `windows-installer`,
+`windows-portable`, `mac-zip`. The Windows installer changes only the disposable
+CI runner when run there; local verification installs to a new temporary folder.
+AppImage checks use its FUSE-free extraction-and-run mode. Linux CI requires
+`xvfb-run` and uses the explicit `AINOGO_TEST_NO_SANDBOX=1` test override; local
+checks should first run with the normal sandbox. These checks do not verify
+Windows SmartScreen, macOS Gatekeeper/notarization, FUSE mounting, every Linux
+distribution, or physical hardware timing. Public builds remain unsigned previews.
+
+## Source and packaged-app checks
+
 Desktop file persistence is covered by `tests/desktop-store.test.mjs` and
 `npm run test:desktop`. The desktop release workflow also runs the restart and
 CSV export smoke test against the packaged executable on each operating system.

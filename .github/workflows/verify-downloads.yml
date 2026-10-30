@@ -1,0 +1,69 @@
+name: Verify published desktop downloads
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published desktop release tag
+        default: desktop-v1.2.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            kind: linux-archive
+          - os: ubuntu-22.04
+            kind: linux-appimage
+          - os: ubuntu-24.04
+            kind: linux-archive
+          - os: ubuntu-24.04
+            kind: linux-appimage
+          - os: windows-2025
+            kind: windows-installer
+          - os: windows-2025
+            kind: windows-portable
+          - os: macos-15
+            kind: mac-zip
+          - os: macos-15-intel
+            kind: mac-zip
+    runs-on: ${{ matrix.os }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AINOGO_RELEASE_TAG: ${{ inputs.release_tag }}
+      AINOGO_DOWNLOAD_KIND: ${{ matrix.kind }}
+      AINOGO_VERIFICATION_REPORT: ${{ runner.temp }}/download-verification.json
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prepare virtual display (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sound_package=libasound2
+          if apt-cache show libasound2t64 >/dev/null 2>&1; then sound_package=libasound2t64; fi
+          sudo apt-get install -y xvfb xauth libgtk-3-0 libnss3 "$sound_package"
+      - name: Verify downloaded app (Linux)
+        if: runner.os == 'Linux'
+        run: AINOGO_TEST_NO_SANDBOX=1 xvfb-run -a node scripts/verify-download.mjs
+      - name: Verify downloaded app (Windows/macOS)
+        if: runner.os != 'Linux'
+        run: node scripts/verify-download.mjs
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: verified-${{ matrix.os }}-${{ matrix.kind }}
+          path: ${{ runner.temp }}/download-verification.json
+          if-no-files-found: ignore

@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { _electron as electron } from 'playwright';
 import * as XLSX from 'xlsx';
 
-const directory = mkdtempSync(join(tmpdir(), 'ainogo-desktop-smoke-'));
+const directory = mkdtempSync(join(process.env.AINOGO_TEST_DATA_PARENT ?? tmpdir(), 'ainogo-desktop-smoke-'));
 const env = { ...process.env, AINOGO_DATA_DIR: directory };
 delete env.ELECTRON_RUN_AS_NODE;
 const executablePath = process.env.AINOGO_PACKAGED_EXECUTABLE ? resolve(process.env.AINOGO_PACKAGED_EXECUTABLE) : undefined;
@@ -16,6 +16,10 @@ let application;
 const errors = [];
 try {
   application = await launch();
+  const runtime = await application.evaluate(({ app }) => ({ platform: process.platform,
+    arch: process.arch, version: app.getVersion(), electron: process.versions.electron }));
+  if (process.env.AINOGO_EXPECTED_ARCH) assert.equal(runtime.arch, process.env.AINOGO_EXPECTED_ARCH);
+  if (process.env.AINOGO_EXPECTED_VERSION) assert.equal(runtime.version, process.env.AINOGO_EXPECTED_VERSION);
   let page = await application.firstWindow();
   page.on('pageerror', error => errors.push(error.message));
   const rate = async value => {
@@ -89,7 +93,7 @@ try {
   assert.ok(await page.evaluate(() => window.ainogoDesktop.listKeys().ok));
   const illegal = await page.evaluate(() => window.ainogoDesktop.getItem('ainogo.session.v1.../escape'));
   assert.equal(illegal.ok, false);
-  console.log(JSON.stringify({ desktop: true, offline: true, recoveredAfterRestart: true,
+  console.log(JSON.stringify({ desktop: true, runtime, offline: true, recoveredAfterRestart: true,
     savedRatings: 32, csvRows: 32, uniqueSessions: 2, partialSavedWithoutExport: true,
     sessionOnlyCsvRows: 16, synchronizedFormats: ['json', 'csv', 'xlsx'], dataDirectory: directory, pageErrors: errors }));
 } finally {
