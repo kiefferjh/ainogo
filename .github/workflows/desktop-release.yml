@@ -68,6 +68,21 @@ jobs:
         env:
           AINOGO_PACKAGED_EXECUTABLE: ${{ matrix.executable }}
         run: node scripts/desktop-smoke.mjs
+      - name: Test actual Windows installer and portable launcher
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          node scripts/checksums.mjs release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $version = node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version"
+          $env:AINOGO_RELEASE_TAG = "desktop-v$version"
+          $env:AINOGO_DOWNLOAD_SOURCE = (Resolve-Path release).Path
+          $env:AINOGO_DOWNLOAD_KIND = 'windows-installer'
+          node scripts/verify-download.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:AINOGO_DOWNLOAD_KIND = 'windows-portable'
+          node scripts/verify-download.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: desktop-${{ matrix.name }}

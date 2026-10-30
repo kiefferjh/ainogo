@@ -5,7 +5,7 @@ on:
     inputs:
       release_tag:
         description: Published desktop release tag
-        default: desktop-v1.2.1
+        default: desktop-v1.2.2
         required: true
         type: string
 

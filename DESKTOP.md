@@ -1,4 +1,8 @@
-# Ainogo 1.2.1 desktop preview
+# Ainogo 1.2.2 desktop preview
+
+This update fixes Windows saving when the app is launched through an equivalent
+8.3 short path (for example, `RUNNER~1`) instead of its long path. The app still
+requires its own main window and exact study entry before permitting data access.
 
 Download the package for your operating system from this release. The study,
 all eight images, and its runtime are included. No Node installation, server,

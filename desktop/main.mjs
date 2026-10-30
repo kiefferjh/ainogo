@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { FileSessionStore, atomicWrite } from './store.mjs';
+import { createEntryGuard } from './trusted-entry.mjs';
 import { parseSession, sessionCsv, sessionColumns, sessionRecords, csvTable } from '../dist-desktop/session.js';
 
 app.setName('Ainogo');
@@ -18,20 +18,20 @@ else {
     catch (error) { dialog.showErrorBox('Cannot open session data folder', error.message); app.quit(); }
     if (store) {
       const entry = join(app.getAppPath(), 'dist-desktop', 'ui', 'index.html');
-      const entryUrl = pathToFileURL(entry).href;
+      const isEntryUrl = createEntryGuard(app.getAppPath(), 'dist-desktop/ui/index.html');
       window = new BrowserWindow({ width: 1040, height: 900, minWidth: 480, minHeight: 500, show: false,
         autoHideMenuBar: true,
         webPreferences: { preload: join(app.getAppPath(), 'desktop', 'preload.cjs'),
           contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true },
       });
       window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-      window.webContents.on('will-navigate', (event, url) => { if (url !== entryUrl) event.preventDefault(); });
+      window.webContents.on('will-navigate', (event, url) => { if (!isEntryUrl(url)) event.preventDefault(); });
       window.webContents.on('will-attach-webview', event => event.preventDefault());
       window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
       window.webContents.session.setPermissionCheckHandler(() => false);
       window.webContents.session.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] }, (_details, callback) => callback({ cancel: true }));
       const verify = event => {
-        if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || event.senderFrame.url !== entryUrl) {
+        if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || !isEntryUrl(event.senderFrame.url)) {
           throw new Error('Untrusted session request.');
         }
       };

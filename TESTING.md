@@ -20,7 +20,7 @@ Each job retains a JSON evidence report as an Actions artifact.
 Run locally on a matching OS with GitHub CLI authenticated:
 
 ```sh
-AINOGO_RELEASE_TAG=desktop-v1.2.1 AINOGO_DOWNLOAD_KIND=linux-archive node scripts/verify-download.mjs
+AINOGO_RELEASE_TAG=desktop-v1.2.2 AINOGO_DOWNLOAD_KIND=linux-archive node scripts/verify-download.mjs
 ```
 
 Kinds: `linux-archive`, `linux-appimage`, `windows-installer`,
@@ -31,6 +31,13 @@ AppImage checks use its FUSE-free extraction-and-run mode. Linux CI requires
 checks should first run with the normal sandbox. These checks do not verify
 Windows SmartScreen, macOS Gatekeeper/notarization, FUSE mounting, every Linux
 distribution, or physical hardware timing. Public builds remain unsigned previews.
+
+The first published-download run exposed a Windows 8.3-path bug in 1.2.1:
+comparing raw file-URL strings rejected legitimate storage IPC when the loader
+used `RUNNER~1` but the app's path was canonicalized to a long name. Version 1.2.2
+canonicalizes the real app directory/ASAR file while requiring the exact study
+entry, the app's WebContents and its main frame. Unit tests cover short/long
+aliases and rejection of other entries, roots, remote URLs and URL parameters.
 
 ## Source and packaged-app checks
 

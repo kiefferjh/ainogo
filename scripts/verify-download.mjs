@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createReadStream, mkdtempSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
+import { createReadStream, mkdtempSync, mkdirSync, readFileSync, writeFileSync, chmodSync, copyFileSync } from 'node:fs';
 import { tmpdir, release } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
-const tag = process.env.AINOGO_RELEASE_TAG ?? 'desktop-v1.2.1';
+const tag = process.env.AINOGO_RELEASE_TAG ?? 'desktop-v1.2.2';
 assert.match(tag, /^desktop-v\d+\.\d+\.\d+$/);
 const version = tag.slice('desktop-v'.length);
 const kind = process.env.AINOGO_DOWNLOAD_KIND;
@@ -23,8 +23,12 @@ const directory = mkdtempSync(join(tmpdir(), 'Ainogo downloaded app '));
 const asset = join(directory, filename);
 const run = (command, args, env = process.env) => execFileSync(command, args,
   { env, encoding: 'utf8', timeout: 240_000, maxBuffer: 4 * 1024 * 1024 });
-run('gh', ['release', 'download', tag, '--repo', 'kiefferjh/ainogo', '--dir', directory,
-  '--pattern', filename, '--pattern', 'SHA256SUMS']);
+if (process.env.AINOGO_DOWNLOAD_SOURCE) {
+  for (const name of [filename, 'SHA256SUMS']) copyFileSync(join(resolve(process.env.AINOGO_DOWNLOAD_SOURCE), name), join(directory, name));
+} else {
+  run('gh', ['release', 'download', tag, '--repo', 'kiefferjh/ainogo', '--dir', directory,
+    '--pattern', filename, '--pattern', 'SHA256SUMS']);
+}
 const checksum = readFileSync(join(directory, 'SHA256SUMS'), 'utf8').split(/\r?\n/)
   .map(line => /^([a-f0-9]{64})  (.+)$/.exec(line)).find(match => match?.[2] === filename)?.[1];
 assert.ok(checksum, 'The exact download must appear in SHA256SUMS.');
@@ -69,6 +73,7 @@ const output = run(process.execPath, [script], env);
 process.stdout.write(output);
 const evidence = JSON.parse(output.trim().split(/\r?\n/).findLast(line => line.startsWith('{')));
 const report = { tag, filename, checksum, operatingSystem: `${process.platform} ${release()}`, arch: process.arch,
+  source: process.env.AINOGO_DOWNLOAD_SOURCE ? 'local-build' : 'published-release',
   normalAppSandbox: env.AINOGO_TEST_NO_SANDBOX !== '1', appImageFuseFree: kind === 'linux-appimage', evidence };
 if (process.env.AINOGO_VERIFICATION_REPORT) writeFileSync(process.env.AINOGO_VERIFICATION_REPORT, JSON.stringify(report, null, 2) + '\n');
 if (process.env.GITHUB_STEP_SUMMARY) writeFileSync(process.env.GITHUB_STEP_SUMMARY,

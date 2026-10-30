@@ -1,6 +1,6 @@
 {
   "name": "ainogo",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Offline image-rating study with local session files, reaction times, and CSV export",
   "main": "desktop/main.mjs",
   "author": "Ainogo contributors",
