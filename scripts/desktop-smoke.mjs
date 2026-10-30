@@ -21,6 +21,7 @@ try {
   if (process.env.AINOGO_EXPECTED_ARCH) assert.equal(runtime.arch, process.env.AINOGO_EXPECTED_ARCH);
   if (process.env.AINOGO_EXPECTED_VERSION) assert.equal(runtime.version, process.env.AINOGO_EXPECTED_VERSION);
   let page = await application.firstWindow();
+  await page.locator('#start-button:not([disabled])').waitFor();
   const storageCheck = await page.evaluate(() => ({ result: window.ainogoDesktop.info(),
     url: location.href, status: document.querySelector('#storage-status').textContent }));
   assert.equal(storageCheck.result.ok, true, JSON.stringify(storageCheck));
