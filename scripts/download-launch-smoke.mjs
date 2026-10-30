@@ -47,6 +47,9 @@ async function launch() {
     await delay(100);
   }
   await page.locator('#start-button:not([disabled])').waitFor();
+  const storageCheck = await page.evaluate(() => ({ result: window.ainogoDesktop.info(),
+    url: location.href, status: document.querySelector('#storage-status').textContent }));
+  assert.equal(storageCheck.result.ok, true, JSON.stringify(storageCheck));
   page.on('pageerror', error => errors.push(error.message));
   const marker = `${sep}resources${sep}app.asar${sep}`;
   const entry = fileURLToPath(page.url());
@@ -81,7 +84,7 @@ try {
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await page.locator('#rating-buttons button:not([disabled])').first().waitFor();
   await page.keyboard.press('2');
-  assert.equal(manifest().ratingCount, 1);
+  assert.equal(manifest().ratingCount, 1, await page.locator('#storage-status').textContent());
   const firstManifest = manifest();
   const first = JSON.parse(readFileSync(join(firstManifest.directory, 'all-experiments.json'), 'utf8')).records[0];
   assert.equal(first.session_status, 'partial');

@@ -21,6 +21,9 @@ try {
   if (process.env.AINOGO_EXPECTED_ARCH) assert.equal(runtime.arch, process.env.AINOGO_EXPECTED_ARCH);
   if (process.env.AINOGO_EXPECTED_VERSION) assert.equal(runtime.version, process.env.AINOGO_EXPECTED_VERSION);
   let page = await application.firstWindow();
+  const storageCheck = await page.evaluate(() => ({ result: window.ainogoDesktop.info(),
+    url: location.href, status: document.querySelector('#storage-status').textContent }));
+  assert.equal(storageCheck.result.ok, true, JSON.stringify(storageCheck));
   page.on('pageerror', error => errors.push(error.message));
   const rate = async value => {
     await page.waitForFunction(() => !document.querySelector('#rating-buttons button').disabled);
@@ -29,7 +32,8 @@ try {
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await page.getByRole('button', { name: 'Begin', exact: true }).click();
   await rate(2);
-  assert.equal(await page.locator('#download-session').isVisible(), false);
+  assert.equal(await page.locator('#download-session').isVisible(), false,
+    await page.locator('#storage-status').textContent());
   const filename = readdirSync(join(directory, 'sessions')).find(name => name.endsWith('.json'));
   const first = JSON.parse(readFileSync(join(directory, 'sessions', filename), 'utf8'));
   assert.equal(first.responses.length, 1);
