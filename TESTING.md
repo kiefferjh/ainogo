@@ -1,5 +1,9 @@
 # Reliability testing
 
+The [1.2.2 published-download report](verification/desktop-v1.2.2.md) records the
+Windows short-path saving fix, all eight passing native checks, exact package
+hashes, local Linux sandbox checks and the remaining manual verification limits.
+
 ## Verify published downloads
 
 The **Verify published desktop downloads** workflow downloads the requested

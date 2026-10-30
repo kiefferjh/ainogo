@@ -12,13 +12,18 @@ internet connection, or cloud account is needed to run the downloaded app.
   `win-x64.exe` portable executable without an installer.
 - **Linux x64:** make the AppImage executable and run it. A `.tar.gz` containing
   the app folder is also provided; extract it and run `ainogo`.
-- **macOS:** extract the universal `.zip` and move Ainogo.app to Applications.
+- **macOS 13 or newer (Intel and Apple Silicon):** extract the universal `.zip`
+  and move Ainogo.app to Applications. The bundle declares macOS 13 as its minimum;
+  the automated download checks run on macOS 15 on both architectures.
 
 These initial downloads are not signed with commercial Windows or Apple
 certificates and are not Apple-notarized. The OS may require explicit approval
 before first launch. Follow your institution's software policy. Linux requires
 a desktop session and support for Chromium's sandbox; AppImage may also require
 FUSE. The archive is an alternative when FUSE is unavailable.
+The AppImage can also run without FUSE using
+`APPIMAGE_EXTRACT_AND_RUN=1 ./Ainogo-1.2.2-linux-x86_64.AppImage` after making it
+executable. This uses the included runtime's temporary extraction mode.
 
 ## Local data
 
