@@ -40,7 +40,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       AINOGO_RELEASE_TAG: ${{ inputs.release_tag }}
       AINOGO_DOWNLOAD_KIND: ${{ matrix.kind }}
-      AINOGO_VERIFICATION_REPORT: ${{ runner.temp }}/download-verification.json
+      AINOGO_VERIFICATION_REPORT: download-verification.json
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
@@ -65,5 +65,5 @@ jobs:
         if: always()
         with:
           name: verified-${{ matrix.os }}-${{ matrix.kind }}
-          path: ${{ runner.temp }}/download-verification.json
+          path: download-verification.json
           if-no-files-found: ignore
